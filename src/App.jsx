@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { usePersistentState } from './storage.js'
 
 
 /* =========================================================
@@ -107,6 +108,103 @@ function formatMoney(amount) {
 
 
 /* =========================================================
+   CATEGORY BREAKDOWN (added for the MVP)
+   Shows where the selected month's expense money went.
+   Works for both the Individual and the Family tracker.
+   ========================================================= */
+
+function CategoryBreakdown({ transactions }) {
+  const totals = {}
+
+  transactions
+    .filter((transaction) => transaction.type === 'expense')
+    .forEach((transaction) => {
+      const name = transaction.category || 'Other'
+
+      totals[name] =
+        (totals[name] || 0) + Number(transaction.amount || 0)
+    })
+
+  const rows = Object.entries(totals).sort((a, b) => b[1] - a[1])
+
+  const grandTotal = rows.reduce((sum, row) => sum + row[1], 0)
+
+  return (
+    <div className="category-breakdown" data-testid="category-breakdown">
+      <h2>📊 Spending by Category</h2>
+
+      {rows.length === 0 ? (
+        <p>No expenses recorded for this month yet.</p>
+      ) : (
+        <>
+          {rows.map(([name, total]) => (
+            <div
+              key={name}
+              className="category-row"
+              data-testid="category-row"
+              data-category={name}
+              data-total={total}
+            >
+              <div className="category-row-top">
+                <span>{name}</span>
+                <strong>₹{total.toLocaleString('en-IN')}</strong>
+              </div>
+
+              <div className="category-bar">
+                <div
+                  className="category-bar-fill"
+                  style={{ width: `${(total / grandTotal) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))}
+
+          <p className="category-total" data-testid="category-grand-total">
+            <strong>Total expenses: ₹{grandTotal.toLocaleString('en-IN')}</strong>
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+
+/* =========================================================
+   COLOUR CODING (added for the MVP)
+   Same scheme as the Individual tracker:
+   green = money in, red = money out, blue = borrowed.
+   ========================================================= */
+
+function getTypeColor(type) {
+  if (type === 'salary' || type === 'extraIncome' || type === 'income') {
+    return 'green'
+  }
+
+  if (type === 'expense' || type === 'repayment') {
+    return 'red'
+  }
+
+  if (type === 'borrowed') {
+    return 'blue'
+  }
+
+  return 'inherit'
+}
+
+function getBalanceColor(amount) {
+  if (Number(amount) > 0) {
+    return 'green'
+  }
+
+  if (Number(amount) < 0) {
+    return 'red'
+  }
+
+  return 'inherit'
+}
+
+
+/* =========================================================
    INDIVIDUAL TRACKER
    ========================================================= */
 
@@ -126,7 +224,11 @@ function IndividualTracker({ onBack }) {
   */
 
   const [transactions, setTransactions] =
-    useState([])
+    usePersistentState(
+      'spendwise.individual.transactions',
+      [],
+      Array.isArray
+    )
 
 
   /*
@@ -1100,6 +1202,7 @@ function IndividualTracker({ onBack }) {
   return (
 
     <div
+      className="tracker"
       style={{
         padding: '20px',
         position: 'relative',
@@ -1116,6 +1219,8 @@ function IndividualTracker({ onBack }) {
             !showMoneyDue
           )
         }
+
+        className="money-due-btn"
 
         style={{
           position: 'absolute',
@@ -1136,6 +1241,7 @@ function IndividualTracker({ onBack }) {
       {showMoneyDue && (
 
         <div
+          className="money-due-panel"
           style={{
             position: 'absolute',
             top: '60px',
@@ -1419,6 +1525,8 @@ function IndividualTracker({ onBack }) {
       )}
 
 
+      <section className="card">
+
       {/* =====================================================
           MONTH
           ===================================================== */}
@@ -1453,7 +1561,9 @@ function IndividualTracker({ onBack }) {
       </select>
 
 
-      <hr />
+      </section>
+
+      <section className="card">
 
 
       {/* =====================================================
@@ -1541,7 +1651,15 @@ function IndividualTracker({ onBack }) {
       </h2>
 
 
-      <hr />
+      </section>
+
+      <section className="card">
+
+      <CategoryBreakdown transactions={monthTransactions} />
+
+      </section>
+
+      <section className="card">
 
 
       {/* =====================================================
@@ -1558,7 +1676,9 @@ function IndividualTracker({ onBack }) {
       </p>
 
 
-      <hr />
+      </section>
+
+      <section className="card">
 
 
       {/* =====================================================
@@ -1883,7 +2003,9 @@ function IndividualTracker({ onBack }) {
       )}
 
 
-      <hr />
+      </section>
+
+      <section className="card">
 
 
       {/* =====================================================
@@ -2105,7 +2227,9 @@ function IndividualTracker({ onBack }) {
 
       )}
 
-            {/* =====================================================
+            </section>
+
+      {/* =====================================================
           MONTH NAVIGATION
           ===================================================== */}
 
@@ -2290,11 +2414,13 @@ function FamilyTracker() {
   // FAMILY SETUP
   // =========================================================
 
-  const [familyName, setFamilyName] = useState('')
+  const [familyName, setFamilyName] =
+    usePersistentState('spendwise.family.name', '')
 
-  const [familyCreated, setFamilyCreated] = useState(false)
+  const [familyCreated, setFamilyCreated] =
+    usePersistentState('spendwise.family.created', false)
 
-  const [members, setMembers] = useState([
+  const [members, setMembers] = usePersistentState('spendwise.family.members', [
     {
       id: 'member-1',
       name: 'Mom',
@@ -2313,7 +2439,7 @@ function FamilyTracker() {
       role: 'Child',
       startingBalance: 0,
     },
-  ])
+  ], Array.isArray)
 
   const [newMemberName, setNewMemberName] = useState('')
   const [newMemberRole, setNewMemberRole] = useState('Child')
@@ -2337,7 +2463,11 @@ function FamilyTracker() {
   // repayment
   // =========================================================
 
-  const [transactions, setTransactions] = useState([])
+  const [transactions, setTransactions] = usePersistentState(
+    'spendwise.family.transactions',
+    [],
+    Array.isArray
+  )
 
   // =========================================================
   // ADD TRANSACTION FORM
@@ -2347,7 +2477,7 @@ function FamilyTracker() {
     useState('expense')
 
   const [selectedMember, setSelectedMember] =
-    useState('')
+    useState(() => (members.length > 0 ? members[0].id : ''))
 
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState('Food')
@@ -3906,7 +4036,7 @@ function FamilyTracker() {
 
                     <p>
                       Remaining:{' '}
-                      <strong>
+                      <strong style={{ color: 'red' }}>
                         {formatFamilyMoney(
                           remaining
                         )}
@@ -4108,7 +4238,7 @@ function FamilyTracker() {
             Family Income
           </p>
 
-          <h2>
+          <h2 style={{ color: 'green' }}>
             {formatFamilyMoney(
               totalFamilyIncome
             )}
@@ -4127,7 +4257,7 @@ function FamilyTracker() {
             Family Expenses
           </p>
 
-          <h2>
+          <h2 style={{ color: 'red' }}>
             {formatFamilyMoney(
               monthlyExpenses
             )}
@@ -4146,7 +4276,7 @@ function FamilyTracker() {
             Debt Repayments
           </p>
 
-          <h2>
+          <h2 style={{ color: 'red' }}>
             {formatFamilyMoney(
               monthlyRepayments
             )}
@@ -4165,7 +4295,7 @@ function FamilyTracker() {
             Family Savings
           </p>
 
-          <h2>
+          <h2 style={{ color: getBalanceColor(monthlyFamilyBalance) }}>
             {formatFamilyMoney(
               monthlyFamilyBalance
             )}
@@ -4192,7 +4322,7 @@ function FamilyTracker() {
 
         <p>
           Salary:{' '}
-          <strong>
+          <strong style={{ color: 'green' }}>
             {formatFamilyMoney(
               monthlySalary
             )}
@@ -4201,7 +4331,7 @@ function FamilyTracker() {
 
         <p>
           Extra Income:{' '}
-          <strong>
+          <strong style={{ color: 'green' }}>
             {formatFamilyMoney(
               monthlyExtraIncome
             )}
@@ -4210,7 +4340,7 @@ function FamilyTracker() {
 
         <p>
           Total:{' '}
-          <strong>
+          <strong style={{ color: 'green' }}>
             {formatFamilyMoney(
               totalFamilyIncome
             )}
@@ -4264,7 +4394,7 @@ function FamilyTracker() {
                   Balance:
                 </p>
 
-                <h2>
+                <h2 style={{ color: getBalanceColor(getMonthlyMemberBalance(member.id)) }}>
                   {formatFamilyMoney(
                     getMonthlyMemberBalance(
                       member.id
@@ -4275,6 +4405,10 @@ function FamilyTracker() {
             )
           )}
         </div>
+      </div>
+
+      <div className="category-card">
+        <CategoryBreakdown transactions={monthlyTransactions} />
       </div>
 
       {/* =====================================================
@@ -4863,7 +4997,7 @@ function FamilyTracker() {
                             'right',
                         }}
                       >
-                        <strong>
+                        <strong style={{ color: getTypeColor(transaction.type) }}>
                           {
                             getTransactionAmountText(
                               transaction
@@ -4875,7 +5009,7 @@ function FamilyTracker() {
 
                         {transaction.type ===
                           'borrowed' && (
-                          <small>
+                          <small style={{ color: 'red' }}>
                             Remaining:{' '}
                             {formatFamilyMoney(
                               getRemainingBorrowedAmount(
@@ -5031,7 +5165,7 @@ function App() {
 
   return (
 
-    <div>
+    <div className="home">
 
       <h1>
         SpendWise
