@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
+import { supabase } from './supabaseClient'
 
-export default function AuthGate({ user, onLogin, onLogout, children }) {
+export default function AuthGate({ user, onLogout, children }) {
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -8,8 +9,9 @@ export default function AuthGate({ user, onLogin, onLogout, children }) {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     setErrorMsg('')
 
@@ -29,14 +31,33 @@ export default function AuthGate({ user, onLogin, onLogout, children }) {
       }
     }
 
-    if (onLogin) {
-      onLogin(email.trim())
+    setLoading(true)
+
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: password,
+        })
+        if (error) throw error
+        alert('Check your email for the confirmation link!')
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password,
+        })
+        if (error) throw error
+      }
+    } catch (error) {
+      setErrorMsg(error.message)
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
     <div>
-      {/* Top Bar showing logged-in user with proper spacing */}
+      {/* Top Bar showing logged-in user */}
       {user && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 20px', background: '#f3f4f6' }}>
           <span style={{ fontSize: '0.9rem', color: '#374151' }}>
@@ -48,7 +69,7 @@ export default function AuthGate({ user, onLogin, onLogout, children }) {
         </div>
       )}
 
-      {/* If user is not logged in, show Auth Gate Modal/Screen */}
+      {/* If user is not logged in, show Auth Gate Modal */}
       {!user ? (
         <div className="modal-backdrop" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
           <div className="modal-content" style={{ maxWidth: '400px', width: '100%', padding: '24px', background: '#fff', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
@@ -116,8 +137,8 @@ export default function AuthGate({ user, onLogin, onLogout, children }) {
                 </>
               )}
 
-              <button type="submit" style={{ width: '100%', marginTop: '12px', padding: '10px' }}>
-                {isSignUp ? 'Sign Up' : 'Log In'}
+              <button type="submit" disabled={loading} style={{ width: '100%', marginTop: '12px', padding: '10px' }}>
+                {loading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Log In')}
               </button>
             </form>
 
