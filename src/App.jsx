@@ -48,7 +48,7 @@ function formatMoney(amount) {
   return Number(amount || 0).toLocaleString('en-IN')
 }
 
-/* Toast Alert Component */
+/* Toast Message Component */
 function ToastAlert({ message, type, onClose }) {
   useEffect(() => {
     if (message) {
@@ -65,8 +65,8 @@ function ToastAlert({ message, type, onClose }) {
     <div className="toast-container">
       <div className={`toast toast-${type}`}>
         <span>{message}</span>
-        <button
-          onClick={onClose}
+        <button 
+          onClick={onClose} 
           style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1rem', padding: '0 4px' }}
         >
           ✕
@@ -159,7 +159,7 @@ function exportToCSV(filename, headers, rows) {
    INDIVIDUAL TRACKER
    ========================================================= */
 
-function IndividualTracker({ onBack, userEmail, onLogout }) {
+function IndividualTracker({ onBack }) {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth())
   const [transactions, setTransactions] = usePersistentState(
     'spendwise.individual.transactions',
@@ -396,7 +396,7 @@ function IndividualTracker({ onBack, userEmail, onLogout }) {
   const extraIncome = monthTransactions.filter((t) => t.type === 'income').reduce((a, b) => a + Number(b.amount), 0)
   const totalIncome = salary + extraIncome
   const totalExpenses = monthTransactions.filter((t) => t.type === 'expense').reduce((a, b) => a + Number(b.amount), 0)
-
+  
   const monthlySavings = totalIncome - totalExpenses
 
   const filteredTransactions = monthTransactions.filter((t) => {
@@ -409,25 +409,13 @@ function IndividualTracker({ onBack, userEmail, onLogout }) {
   return (
     <div className="tracker">
       <ToastAlert message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
-      <ConfirmModal
-        isOpen={Boolean(deleteId)}
+      <ConfirmModal 
+        isOpen={Boolean(deleteId)} 
         title="Confirm Deletion"
-        message="Are you sure you want to delete this transaction entry?"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteId(null)}
+        message="Are you sure you want to delete this transaction entry?" 
+        onConfirm={handleConfirmDelete} 
+        onCancel={() => setDeleteId(null)} 
       />
-
-      {/* Sync / Status Banner with Space and Logout Button */}
-      {userEmail && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', background: '#f3f4f6', padding: '8px 16px', borderRadius: '8px' }}>
-          <span style={{ fontSize: '0.9rem', color: '#374151' }}>
-            ✓ Saved to cloud {userEmail}
-          </span>
-          <button className="btn-secondary" onClick={onLogout} style={{ padding: '4px 12px', fontSize: '0.85rem' }}>
-            Log out
-          </button>
-        </div>
-      )}
 
       <div className="top-bar-nav">
         <button onClick={onBack} className="btn-secondary">← Back to Home</button>
@@ -514,7 +502,7 @@ function IndividualTracker({ onBack, userEmail, onLogout }) {
 
       <section className="card">
         <h2>{editingId !== null ? '✏️ Edit Transaction' : '➕ Add Transaction'}</h2>
-
+        
         <label>Type</label>
         <select value={transactionType} onChange={(e) => handleTypeChange(e.target.value)}>
           <option value="salary">Salary</option>
@@ -567,43 +555,43 @@ function IndividualTracker({ onBack, userEmail, onLogout }) {
         <h2>📖 {formatMonth(selectedMonth)} Transactions Diary</h2>
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '16px 0 20px 0' }}>
-          <button
-            className={filterType === 'all' ? '' : 'btn-secondary'}
+          <button 
+            className={filterType === 'all' ? '' : 'btn-secondary'} 
             onClick={() => setFilterType('all')}
             style={{ padding: '6px 14px', fontSize: '0.9rem' }}
           >
             All
           </button>
-          <button
-            className={filterType === 'salary' ? '' : 'btn-secondary'}
+          <button 
+            className={filterType === 'salary' ? '' : 'btn-secondary'} 
             onClick={() => setFilterType('salary')}
             style={{ padding: '6px 14px', fontSize: '0.9rem' }}
           >
             Salary
           </button>
-          <button
-            className={filterType === 'income' ? '' : 'btn-secondary'}
+          <button 
+            className={filterType === 'income' ? '' : 'btn-secondary'} 
             onClick={() => setFilterType('income')}
             style={{ padding: '6px 14px', fontSize: '0.9rem' }}
           >
             Extra Income
           </button>
-          <button
-            className={filterType === 'expense' ? '' : 'btn-secondary'}
+          <button 
+            className={filterType === 'expense' ? '' : 'btn-secondary'} 
             onClick={() => setFilterType('expense')}
             style={{ padding: '6px 14px', fontSize: '0.9rem' }}
           >
             Expenses
           </button>
-          <button
-            className={filterType === 'borrowed' ? '' : 'btn-secondary'}
+          <button 
+            className={filterType === 'borrowed' ? '' : 'btn-secondary'} 
             onClick={() => setFilterType('borrowed')}
             style={{ padding: '6px 14px', fontSize: '0.9rem' }}
           >
             Borrowed Money
           </button>
-          <button
-            className={filterType === 'repayment' ? '' : 'btn-secondary'}
+          <button 
+            className={filterType === 'repayment' ? '' : 'btn-secondary'} 
             onClick={() => setFilterType('repayment')}
             style={{ padding: '6px 14px', fontSize: '0.9rem' }}
           >
@@ -640,26 +628,27 @@ function IndividualTracker({ onBack, userEmail, onLogout }) {
    FAMILY TRACKER
    ========================================================= */
 
+/* The categories an EXPENSE is allowed to have. */
 const EXPENSE_CATEGORIES = [
   'Food', 'Transport', 'Shopping', 'Entertainment',
   'Education', 'Bills', 'Health', 'Other',
 ]
 
+/* An expense carrying a leftover income label such as "Salary" or "Bonus". */
 function isMislabelledExpense(t) {
   return t.type === 'expense' && !EXPENSE_CATEGORIES.includes(t.category)
 }
 
-function FamilyTracker({ onBack, userEmail, onLogout }) {
+function FamilyTracker({ onBack }) {
   const [familyName, setFamilyName] = usePersistentState('spendwise.family.name', '')
   const [familyCreated, setFamilyCreated] = usePersistentState('spendwise.family.created', false)
+  const [editingFamilyName, setEditingFamilyName] = useState(false)
+  const [familyNameDraft, setFamilyNameDraft] = useState('')
   const [members, setMembers] = usePersistentState('spendwise.family.members', [
     { id: 'member-1', name: 'Mom', role: 'Parent' },
     { id: 'member-2', name: 'Dad', role: 'Parent' },
     { id: 'member-3', name: 'Kid', role: 'Child' },
   ], Array.isArray)
-
-  const [isEditingFamilyName, setIsEditingFamilyName] = useState(false)
-  const [tempFamilyName, setTempFamilyName] = useState(familyName)
 
   const [newMemberName, setNewMemberName] = useState('')
   const [newMemberRole, setNewMemberRole] = useState('Child')
@@ -685,6 +674,7 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
 
   const availableMonths = getAvailableMonths()
 
+  // Initialize dropdown member selections
   useEffect(() => {
     if (members.length > 0) {
       if (!selectedMember) setSelectedMember(members[0].id)
@@ -693,6 +683,12 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
     }
   }, [members, selectedMember, transferFrom, transferTo])
 
+  /*
+    Repair expenses that were saved with a leftover "Salary"/"Bonus" label.
+    While the bug was active the dropdown on screen showed "Food", so Food is
+    what the person actually saw and chose. Real salary / bonus entries are
+    not touched.
+  */
   useEffect(() => {
     if (transactions.some(isMislabelledExpense)) {
       setTransactions(
@@ -715,14 +711,26 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
     showSuccess(`${familyName.trim()} Tracker created successfully!`)
   }
 
+  function startEditingFamilyName() {
+    setFamilyNameDraft(familyName)
+    setEditingFamilyName(true)
+  }
+
   function saveFamilyName() {
-    if (!tempFamilyName.trim()) {
-      showError('Family name cannot be empty.')
+    const trimmedName = familyNameDraft.trim()
+    if (!trimmedName) {
+      showError('Please enter a valid family name.')
       return
     }
-    setFamilyName(tempFamilyName.trim())
-    setIsEditingFamilyName(false)
+
+    setFamilyName(trimmedName)
+    setEditingFamilyName(false)
     showSuccess('Family name updated successfully!')
+  }
+
+  function cancelEditingFamilyName() {
+    setFamilyNameDraft(familyName)
+    setEditingFamilyName(false)
   }
 
   function addMember() {
@@ -869,21 +877,24 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
     showSuccess('Family CSV export downloaded!')
   }
 
+  /* Calculations for Dashboard */
   const monthlyTransactions = transactions.filter((t) => t.date && t.date.startsWith(selectedMonth))
 
+  /* Family Log: apply the type filter, newest first */
   const filteredLog = monthlyTransactions
     .filter((t) => filterType === 'all' || t.type === filterType)
     .sort((a, b) => b.date.localeCompare(a.date))
   const monthlySalary = monthlyTransactions.filter((t) => t.type === 'salary').reduce((sum, t) => sum + Number(t.amount || 0), 0)
   const monthlyExtra = monthlyTransactions.filter((t) => t.type === 'extraIncome').reduce((sum, t) => sum + Number(t.amount || 0), 0)
   const totalFamilyIncome = monthlySalary + monthlyExtra
-
+  
   const monthlyExpenses = monthlyTransactions
     .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + Number(t.amount || 0), 0)
-
+  
   const familySavings = totalFamilyIncome - monthlyExpenses
 
+  /* Calculate Dynamic Member Balances for selected month */
   function getMemberBalance(memberId) {
     let balance = 0
     monthlyTransactions.forEach((t) => {
@@ -915,25 +926,13 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
   return (
     <div className="tracker">
       <ToastAlert message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
-      <ConfirmModal
-        isOpen={Boolean(deleteId)}
-        title="Delete Family Transaction"
-        message="Are you sure you want to remove this family transaction entry?"
-        onConfirm={confirmDelete}
-        onCancel={() => setDeleteId(null)}
+      <ConfirmModal 
+        isOpen={Boolean(deleteId)} 
+        title="Delete Family Transaction" 
+        message="Are you sure you want to remove this family transaction entry?" 
+        onConfirm={confirmDelete} 
+        onCancel={() => setDeleteId(null)} 
       />
-
-      {/* Sync / Status Banner with Space and Logout Button */}
-      {userEmail && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', background: '#f3f4f6', padding: '8px 16px', borderRadius: '8px' }}>
-          <span style={{ fontSize: '0.9rem', color: '#374151' }}>
-            ✓ Saved to cloud {userEmail}
-          </span>
-          <button className="btn-secondary" onClick={onLogout} style={{ padding: '4px 12px', fontSize: '0.85rem' }}>
-            Log out
-          </button>
-        </div>
-      )}
 
       <div className="top-bar-nav">
         <button onClick={onBack} className="btn-secondary">← Back to Home</button>
@@ -943,32 +942,41 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
         </div>
       </div>
 
-      {/* Editable Family Name Title */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
-        {isEditingFamilyName ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="text"
-              value={tempFamilyName}
-              onChange={(e) => setTempFamilyName(e.target.value)}
-              style={{ fontSize: '1.2rem', padding: '4px 8px', margin: 0 }}
-            />
-            <button onClick={saveFamilyName} style={{ padding: '6px 12px' }}>Save</button>
-            <button className="btn-secondary" onClick={() => { setIsEditingFamilyName(false); setTempFamilyName(familyName); }} style={{ padding: '6px 12px' }}>Cancel</button>
-          </div>
-        ) : (
-          <>
-            <h1 style={{ margin: 0 }}>👨‍👩‍👧‍‍👦 {familyName} Tracker</h1>
-            <button
-              className="btn-secondary"
-              onClick={() => { setTempFamilyName(familyName); setIsEditingFamilyName(true); }}
-              style={{ padding: '4px 8px', fontSize: '0.85rem' }}
-            >
-              ✏️ Edit Name
-            </button>
-          </>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <h1 style={{ marginBottom: 0 }}>👨‍👩‍👧‍👦 {familyName} Tracker</h1>
+        {!editingFamilyName && (
+          <button
+            className="btn-secondary"
+            onClick={startEditingFamilyName}
+            style={{ padding: '6px 10px' }}
+          >
+            ✏️ Edit Family Name
+          </button>
         )}
       </div>
+      {editingFamilyName && (
+        <div
+          className="card"
+          style={{
+            marginTop: '12px',
+            display: 'flex',
+            gap: '10px',
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}
+        >
+          <label style={{ margin: 0 }}><strong>Family Name</strong></label>
+          <input
+            type="text"
+            value={familyNameDraft}
+            onChange={(e) => setFamilyNameDraft(e.target.value)}
+            placeholder="e.g. The Sharma Family"
+            style={{ flex: '1 1 260px', margin: 0 }}
+          />
+          <button onClick={saveFamilyName}>Save Name</button>
+          <button className="btn-secondary" onClick={cancelEditingFamilyName}>Cancel</button>
+        </div>
+      )}
       <hr />
 
       {/* Summary Stat Cards */}
@@ -1027,7 +1035,7 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
       {/* Add / Edit Form */}
       <section className="card">
         <h2>{editingId ? '✏️ Edit Family Entry' : '➕ Add Family Transaction'}</h2>
-
+        
         <label>Transaction Type</label>
         <select value={transactionType} onChange={(e) => handleTypeChange(e.target.value)}>
           <option value="expense">Expense</option>
@@ -1134,9 +1142,9 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
                 {t.note && <div style={{ fontSize: '0.85rem', color: '#4b5563' }}>{t.note}</div>}
               </div>
               <div>
-                <strong style={{
-                  color: t.type === 'expense' ? '#dc2626' : t.type === 'transfer' ? '#4f46e5' : '#16a34a',
-                  marginRight: '12px'
+                <strong style={{ 
+                  color: t.type === 'expense' ? '#dc2626' : t.type === 'transfer' ? '#4f46e5' : '#16a34a', 
+                  marginRight: '12px' 
                 }}>
                   ₹{formatMoney(t.amount)}
                 </strong>
@@ -1166,166 +1174,22 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
 
 
 /* =========================================================
-   AUTH MODAL / LOGIN & SIGNUP
-   ========================================================= */
-
-function AuthModal({ onLogin }) {
-  const [isSignUp, setIsSignUp] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [errorMsg, setErrorMsg] = useState('')
-
-  function handleSubmit(e) {
-    e.preventDefault()
-    setErrorMsg('')
-
-    if (!email.trim() || !password) {
-      setErrorMsg('Please enter email and password.')
-      return
-    }
-
-    if (isSignUp) {
-      if (password !== confirmPassword) {
-        setErrorMsg('Passwords do not match.')
-        return
-      }
-      if (password.length < 6) {
-        setErrorMsg('Password must be at least 6 characters.')
-        return
-      }
-    }
-
-    onLogin(email.trim())
-  }
-
-  return (
-    <div className="modal-backdrop">
-      <div className="modal-content" style={{ maxWidth: '400px', width: '100%' }}>
-        <h2>{isSignUp ? 'Create Account' : 'Welcome Back'}</h2>
-        <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '16px' }}>
-          {isSignUp ? 'Sign up to sync your data to the cloud.' : 'Log in to access your saved cloud data.'}
-        </p>
-
-        {errorMsg && (
-          <div style={{ color: '#dc2626', background: '#fee2e2', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '12px' }}>
-            {errorMsg}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <label>Email Address</label>
-          <input
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-
-          <label>Password</label>
-          <div style={{ position: 'relative' }}>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Enter password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={{ width: '100%', paddingRight: '40px' }}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
-            >
-              {showPassword ? '🙈' : '👁️'}
-            </button>
-          </div>
-
-          {isSignUp && (
-            <>
-              <label style={{ marginTop: '12px', display: 'block' }}>Confirm Password</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  placeholder="Confirm password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  style={{ width: '100%', paddingRight: '40px' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
-                >
-                  {showConfirmPassword ? '🙈' : '👁️'}
-                </button>
-              </div>
-            </>
-          )}
-
-          <button type="submit" style={{ width: '100%', marginTop: '20px' }}>
-            {isSignUp ? 'Sign Up' : 'Log In'}
-          </button>
-        </form>
-
-        <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '0.9rem' }}>
-          {isSignUp ? (
-            <span>Already have an account? <button style={{ background: 'none', border: 'none', color: '#4f46e5', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setIsSignUp(false)}>Log In</button></span>
-          ) : (
-            <span>Don't have an account? <button style={{ background: 'none', border: 'none', color: '#4f46e5', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setIsSignUp(true)}>Sign Up</button></span>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-
-/* =========================================================
    MAIN APP (HOME SCREEN & ROUTING)
    ========================================================= */
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home')
-  const [userEmail, setUserEmail] = usePersistentState('spendwise.userEmail', '')
-  const [showAuth, setShowAuth] = useState(false)
-
-  function handleLogin(email) {
-    setUserEmail(email)
-    setShowAuth(false)
-  }
-
-  function handleLogout() {
-    setUserEmail('')
-  }
 
   if (activeTab === 'individual') {
-    return <IndividualTracker onBack={() => setActiveTab('home')} userEmail={userEmail} onLogout={handleLogout} />
+    return <IndividualTracker onBack={() => setActiveTab('home')} />
   }
 
   if (activeTab === 'family') {
-    return <FamilyTracker onBack={() => setActiveTab('home')} userEmail={userEmail} onLogout={handleLogout} />
+    return <FamilyTracker onBack={() => setActiveTab('home')} />
   }
 
   return (
     <div className="home-container">
-      {showAuth && <AuthModal onLogin={handleLogin} />}
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 20px' }}>
-        {userEmail ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '0.9rem', color: '#374151' }}>✓ Saved to cloud {userEmail}</span>
-            <button className="btn-secondary" onClick={handleLogout} style={{ padding: '4px 12px', fontSize: '0.85rem' }}>Log out</button>
-          </div>
-        ) : (
-          <button className="btn-secondary" onClick={() => setShowAuth(true)}>Log in / Sign up</button>
-        )}
-      </div>
-
       <header className="home-header">
         <h1>Welcome to SpendWise</h1>
         <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
@@ -1345,7 +1209,7 @@ export default function App() {
 
         <div className="home-card">
           <div>
-            <div className="home-card-icon">👨‍👩‍‍👧‍👦</div>
+            <div className="home-card-icon">👨‍👩‍👧‍👦</div>
             <h2>Family Tracker</h2>
             <p>Manage group family budgets, shared household expenses, and member transfers.</p>
           </div>
