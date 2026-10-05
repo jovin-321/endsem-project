@@ -397,9 +397,13 @@ function IndividualTracker({ onBack }) {
   const salary = monthTransactions.filter((t) => t.type === 'salary').reduce((a, b) => a + Number(b.amount), 0)
   const extraIncome = monthTransactions.filter((t) => t.type === 'income').reduce((a, b) => a + Number(b.amount), 0)
   const totalIncome = salary + extraIncome
-  const totalExpenses = monthTransactions.filter((t) => t.type === 'expense').reduce((a, b) => a + Number(b.amount), 0)
-  
-  /* Net Savings excludes Repayments */
+
+  /* Expenses explicitly filter strictly for 'expense' type */
+  const totalExpenses = monthTransactions
+    .filter((t) => t.type === 'expense')
+    .reduce((a, b) => a + Number(b.amount), 0)
+
+  /* Net Savings = Total Income - Expenses (repayments are completely excluded) */
   const monthlySavings = totalIncome - totalExpenses
 
   /* Segregation Filtered List */
@@ -813,9 +817,13 @@ function FamilyTracker({ onBack }) {
   const monthlySalary = monthlyTransactions.filter((t) => t.type === 'salary').reduce((sum, t) => sum + Number(t.amount || 0), 0)
   const monthlyExtra = monthlyTransactions.filter((t) => t.type === 'extraIncome').reduce((sum, t) => sum + Number(t.amount || 0), 0)
   const totalFamilyIncome = monthlySalary + monthlyExtra
-  const monthlyExpenses = monthlyTransactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0)
   
-  /* Family Savings excludes Repayments */
+  /* Family Expenses strictly filter for 'expense' type */
+  const monthlyExpenses = monthlyTransactions
+    .filter((t) => t.type === 'expense')
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0)
+  
+  /* Family Net Savings = Income - Expenses (repayments excluded) */
   const familySavings = totalFamilyIncome - monthlyExpenses
 
   if (!familyCreated) {
