@@ -657,6 +657,7 @@ function FamilyTracker({ onBack }) {
   const [selectedMember, setSelectedMember] = useState('')
   const [transferFrom, setTransferFrom] = useState('')
   const [transferTo, setTransferTo] = useState('')
+  const [filterType, setFilterType] = useState('all')
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState('Food')
   const [note, setNote] = useState('')
@@ -854,6 +855,11 @@ function FamilyTracker({ onBack }) {
 
   /* Calculations for Dashboard */
   const monthlyTransactions = transactions.filter((t) => t.date && t.date.startsWith(selectedMonth))
+
+  /* Family Log: apply the type filter, newest first */
+  const filteredLog = monthlyTransactions
+    .filter((t) => filterType === 'all' || t.type === filterType)
+    .sort((a, b) => b.date.localeCompare(a.date))
   const monthlySalary = monthlyTransactions.filter((t) => t.type === 'salary').reduce((sum, t) => sum + Number(t.amount || 0), 0)
   const monthlyExtra = monthlyTransactions.filter((t) => t.type === 'extraIncome').reduce((sum, t) => sum + Number(t.amount || 0), 0)
   const totalFamilyIncome = monthlySalary + monthlyExtra
@@ -1037,10 +1043,32 @@ function FamilyTracker({ onBack }) {
       {/* Family Log */}
       <section className="card">
         <h2>📖 Family Log</h2>
+
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '16px 0 20px 0' }}>
+          {[
+            ['all', 'All'],
+            ['salary', 'Salary'],
+            ['extraIncome', 'Extra Income'],
+            ['expense', 'Expenses'],
+            ['transfer', 'Transfers'],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              className={filterType === value ? '' : 'btn-secondary'}
+              onClick={() => setFilterType(value)}
+              style={{ padding: '6px 14px', fontSize: '0.9rem' }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {monthlyTransactions.length === 0 ? (
           <p style={{ color: '#6b7280' }}>No family entries recorded for this month.</p>
+        ) : filteredLog.length === 0 ? (
+          <p style={{ color: '#6b7280' }}>No entries found for this category filter.</p>
         ) : (
-          [...monthlyTransactions].sort((a, b) => b.date.localeCompare(a.date)).map((t) => (
+          filteredLog.map((t) => (
             <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #e5e7eb', alignItems: 'center' }}>
               <div>
                 {t.type === 'transfer' ? (
