@@ -31,12 +31,6 @@ function formatMonth(monthString) {
   return date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
 }
 
-function getPreviousMonth(monthString) {
-  const [year, month] = monthString.split('-')
-  const date = new Date(Number(year), Number(month) - 2, 1)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-}
-
 function getAvailableMonths() {
   const months = []
   const currentMonth = getCurrentMonth()
@@ -82,7 +76,7 @@ function ToastAlert({ message, type, onClose }) {
   )
 }
 
-/* Are You Sure Delete Modal */
+/* Confirm Modal */
 function ConfirmModal({ isOpen, title, message, onConfirm, onCancel }) {
   if (!isOpen) return null
 
@@ -182,15 +176,16 @@ function IndividualTracker({ onBack }) {
   const [dueDate, setDueDate] = useState('')
   const [editingId, setEditingId] = useState(null)
 
+  /* Segregation / Filter State */
+  const [filterType, setFilterType] = useState('all')
+
   const [showMoneyDue, setShowMoneyDue] = useState(false)
   const [paymentBorrowedId, setPaymentBorrowedId] = useState(null)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentDate, setPaymentDate] = useState(getToday())
 
-  /* Toast Alerts */
+  /* Toast & Confirm Modals */
   const [toast, setToast] = useState({ message: '', type: 'success' })
-  
-  /* Confirm Delete Modal */
   const [deleteId, setDeleteId] = useState(null)
 
   const showSuccess = (msg) => setToast({ message: msg, type: 'success' })
@@ -243,7 +238,6 @@ function IndividualTracker({ onBack }) {
     if (type === 'income') setCategory('Gift')
     if (type === 'expense') setCategory('Food')
     if (type === 'borrowed') setCategory('Borrowed Money')
-    if (type === 'repayment') setCategory('Repayment')
   }
 
   function saveTransaction() {
@@ -407,7 +401,13 @@ function IndividualTracker({ onBack }) {
   const totalRepayments = monthTransactions.filter((t) => t.type === 'repayment').reduce((a, b) => a + Number(b.amount), 0)
   const monthlySavings = totalIncome - totalExpenses - totalRepayments
 
-  const sortedTransactions = [...monthTransactions].sort((a, b) => b.date.localeCompare(a.date))
+  /* Segregation Filtered List */
+  const filteredTransactions = monthTransactions.filter((t) => {
+    if (filterType === 'all') return true
+    return t.type === filterType
+  })
+
+  const sortedTransactions = [...filteredTransactions].sort((a, b) => b.date.localeCompare(a.date))
 
   return (
     <div className="tracker">
@@ -453,7 +453,7 @@ function IndividualTracker({ onBack }) {
         </div>
       )}
 
-      {/* Payment Form Modal Inline */}
+      {/* Payment Form Inline */}
       {paymentBorrowedId && (
         <div className="card" style={{ border: '2px solid #4f46e5' }}>
           <h3>Record Repayment</h3>
@@ -466,7 +466,7 @@ function IndividualTracker({ onBack }) {
         </div>
       )}
 
-      {/* Stat Cards Summary */}
+      {/* Stat Cards Summary - 5 Box Single Row Alignment */}
       <section className="card">
         <h2>{formatMonth(selectedMonth)} Summary</h2>
         <div className="stat-grid">
@@ -485,10 +485,6 @@ function IndividualTracker({ onBack }) {
           <div className="stat-card">
             <div className="stat-card-title">Expenses</div>
             <div className="stat-card-value red">₹{formatMoney(totalExpenses)}</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-card-title">Repayments</div>
-            <div className="stat-card-value red">₹{formatMoney(totalRepayments)}</div>
           </div>
           <div className="stat-card">
             <div className="stat-card-title">Net Savings</div>
@@ -521,7 +517,6 @@ function IndividualTracker({ onBack }) {
           <option value="income">Extra Income</option>
           <option value="expense">Expense</option>
           <option value="borrowed">Borrowed Money</option>
-          <option value="repayment">Repayment</option>
         </select>
 
         <label>Amount (₹)</label>
@@ -543,15 +538,10 @@ function IndividualTracker({ onBack }) {
           </>
         )}
 
-        {(transactionType === 'borrowed' || transactionType === 'repayment') && (
+        {transactionType === 'borrowed' && (
           <>
             <label>Person</label>
             <input type="text" placeholder="Person name" value={person} onChange={(e) => setPerson(e.target.value)} />
-          </>
-        )}
-
-        {transactionType === 'borrowed' && (
-          <>
             <label>Due Date</label>
             <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </>
@@ -569,11 +559,58 @@ function IndividualTracker({ onBack }) {
         </div>
       </section>
 
-      {/* Transactions List Diary */}
+      {/* Transactions List Diary with Segregation Filter */}
       <section className="card">
         <h2>📖 {formatMonth(selectedMonth)} Transactions Diary</h2>
+
+        {/* Segregation Buttons */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '16px 0 20px 0' }}>
+          <button 
+            className={filterType === 'all' ? '' : 'btn-secondary'} 
+            onClick={() => setFilterType('all')}
+            style={{ padding: '6px 14px', fontSize: '0.9rem' }}
+          >
+            All
+          </button>
+          <button 
+            className={filterType === 'salary' ? '' : 'btn-secondary'} 
+            onClick={() => setFilterType('salary')}
+            style={{ padding: '6px 14px', fontSize: '0.9rem' }}
+          >
+            Salary
+          </button>
+          <button 
+            className={filterType === 'income' ? '' : 'btn-secondary'} 
+            onClick={() => setFilterType('income')}
+            style={{ padding: '6px 14px', fontSize: '0.9rem' }}
+          >
+            Extra Income
+          </button>
+          <button 
+            className={filterType === 'expense' ? '' : 'btn-secondary'} 
+            onClick={() => setFilterType('expense')}
+            style={{ padding: '6px 14px', fontSize: '0.9rem' }}
+          >
+            Expenses
+          </button>
+          <button 
+            className={filterType === 'borrowed' ? '' : 'btn-secondary'} 
+            onClick={() => setFilterType('borrowed')}
+            style={{ padding: '6px 14px', fontSize: '0.9rem' }}
+          >
+            Borrowed Money
+          </button>
+          <button 
+            className={filterType === 'repayment' ? '' : 'btn-secondary'} 
+            onClick={() => setFilterType('repayment')}
+            style={{ padding: '6px 14px', fontSize: '0.9rem' }}
+          >
+            Repayments
+          </button>
+        </div>
+
         {sortedTransactions.length === 0 ? (
-          <p style={{ color: '#6b7280' }}>No entries found for this month.</p>
+          <p style={{ color: '#6b7280' }}>No entries found for this category filter.</p>
         ) : (
           sortedTransactions.map((t) => (
             <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #e5e7eb', alignItems: 'center' }}>
@@ -627,12 +664,6 @@ function FamilyTracker({ onBack }) {
   const [transferTo, setTransferTo] = useState('')
   const [editingId, setEditingId] = useState(null)
 
-  const [showMoneyDue, setShowMoneyDue] = useState(false)
-  const [paymentBorrowedId, setPaymentBorrowedId] = useState(null)
-  const [paymentAmount, setPaymentAmount] = useState('')
-  const [paymentDate, setPaymentDate] = useState(getToday())
-
-  /* Notifications & Modals */
   const [toast, setToast] = useState({ message: '', type: 'success' })
   const [deleteId, setDeleteId] = useState(null)
 
@@ -789,7 +820,7 @@ function FamilyTracker({ onBack }) {
     return (
       <div className="card" style={{ maxWidth: '600px', margin: '40px auto' }}>
         <button className="btn-secondary" onClick={onBack}>← Back to Home</button>
-        <h2>👨‍👩‍👧‍‍👦 Create Your Family Tracker</h2>
+        <h2>👨‍👩‍👧‍👦 Create Your Family Tracker</h2>
         <p style={{ color: '#6b7280' }}>Setup your household group to track shared income and expenses.</p>
         <label>Family Name</label>
         <input type="text" placeholder="e.g. The Sharma Family" value={familyName} onChange={(e) => setFamilyName(e.target.value)} />
@@ -810,7 +841,6 @@ function FamilyTracker({ onBack }) {
       />
 
       <div className="top-bar-nav">
-        {/* FIXED: Proper back button returning to SpendWise home screen */}
         <button onClick={onBack} className="btn-secondary">← Back to Home</button>
         <div className="action-buttons-group">
           <button onClick={loadSampleData} className="btn-secondary">⚡ Load Sample Data</button>
@@ -853,12 +883,12 @@ function FamilyTracker({ onBack }) {
         </select>
       </section>
 
-      {/* Category Chart Breakdown for Family */}
+      {/* Category Chart Breakdown */}
       <section className="card">
         <CategoryBreakdown transactions={monthlyTransactions} />
       </section>
 
-      {/* Add / Edit Transaction Form */}
+      {/* Add / Edit Form */}
       <section className="card">
         <h2>{editingId ? '✏️ Edit Family Entry' : '➕ Add Family Transaction'}</h2>
         
@@ -868,7 +898,6 @@ function FamilyTracker({ onBack }) {
           <option value="salary">Salary / Income</option>
           <option value="transfer">Internal Transfer</option>
           <option value="borrowed">Borrowed Money</option>
-          <option value="repayment">Repayment</option>
         </select>
 
         {transactionType === 'transfer' ? (
@@ -925,7 +954,7 @@ function FamilyTracker({ onBack }) {
         </div>
       </section>
 
-      {/* Family Diary */}
+      {/* Family Log */}
       <section className="card">
         <h2>📖 Family Log</h2>
         {monthlyTransactions.length === 0 ? (
@@ -950,7 +979,7 @@ function FamilyTracker({ onBack }) {
         )}
       </section>
 
-      {/* Member Management Section */}
+      {/* Member Management */}
       <section className="card">
         <h2>👥 Manage Family Members</h2>
         <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
@@ -991,7 +1020,6 @@ export default function App() {
         </p>
       </header>
 
-      {/* Improved Two-Card Home Screen */}
       <div className="home-cards">
         <div className="home-card">
           <div>
