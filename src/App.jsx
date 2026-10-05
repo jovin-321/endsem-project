@@ -628,6 +628,17 @@ function IndividualTracker({ onBack }) {
    FAMILY TRACKER
    ========================================================= */
 
+/* The categories an EXPENSE is allowed to have. */
+const EXPENSE_CATEGORIES = [
+  'Food', 'Transport', 'Shopping', 'Entertainment',
+  'Education', 'Bills', 'Health', 'Other',
+]
+
+/* An expense carrying a leftover income label such as "Salary" or "Bonus". */
+function isMislabelledExpense(t) {
+  return t.type === 'expense' && !EXPENSE_CATEGORIES.includes(t.category)
+}
+
 function FamilyTracker({ onBack }) {
   const [familyName, setFamilyName] = usePersistentState('spendwise.family.name', '')
   const [familyCreated, setFamilyCreated] = usePersistentState('spendwise.family.created', false)
@@ -668,6 +679,20 @@ function FamilyTracker({ onBack }) {
       if (!transferTo) setTransferTo(members[1] ? members[1].id : members[0].id)
     }
   }, [members, selectedMember, transferFrom, transferTo])
+
+  /*
+    Repair expenses that were saved with a leftover "Salary"/"Bonus" label.
+    While the bug was active the dropdown on screen showed "Food", so Food is
+    what the person actually saw and chose. Real salary / bonus entries are
+    not touched.
+  */
+  useEffect(() => {
+    if (transactions.some(isMislabelledExpense)) {
+      setTransactions(
+        transactions.map((t) => (isMislabelledExpense(t) ? { ...t, category: 'Food' } : t))
+      )
+    }
+  }, [transactions, setTransactions])
 
   function getMemberName(id) {
     const member = members.find((m) => m.id === id)
@@ -748,7 +773,12 @@ function FamilyTracker({ onBack }) {
       type: transactionType,
       memberId: selectedMember,
       amount: numericAmount,
-      category: transactionType === 'salary' ? 'Salary' : category,
+      category:
+        transactionType === 'salary'
+          ? 'Salary'
+          : transactionType === 'expense' && !EXPENSE_CATEGORIES.includes(category)
+            ? 'Food'
+            : category,
       note: note.trim(),
       date,
     }
@@ -778,6 +808,7 @@ function FamilyTracker({ onBack }) {
 
   function resetForm() {
     setTransactionType('expense')
+    setCategory('Food')
     setAmount('')
     setNote('')
     setEditingId(null)
@@ -1009,7 +1040,7 @@ function FamilyTracker({ onBack }) {
         {monthlyTransactions.length === 0 ? (
           <p style={{ color: '#6b7280' }}>No family entries recorded for this month.</p>
         ) : (
-          monthlyTransactions.map((t) => (
+          [...monthlyTransactions].sort((a, b) => b.date.localeCompare(a.date)).map((t) => (
             <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #e5e7eb', alignItems: 'center' }}>
               <div>
                 {t.type === 'transfer' ? (
