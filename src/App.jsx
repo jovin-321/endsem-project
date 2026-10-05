@@ -1,206 +1,163 @@
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { usePersistentState } from './storage.js'
-
+import './App.css'
 
 /* =========================================================
-   DATE HELPERS
+   HELPERS & COMMON COMPONENTS
    ========================================================= */
 
 function getToday() {
   const today = new Date()
-
   const year = today.getFullYear()
   const month = String(today.getMonth() + 1).padStart(2, '0')
   const day = String(today.getDate()).padStart(2, '0')
-
   return `${year}-${month}-${day}`
 }
 
-
 function formatDate(dateString) {
-  if (!dateString) {
-    return ''
-  }
-
+  if (!dateString) return ''
   const [year, month, day] = dateString.split('-')
-
   return `${day}-${month}-${year}`
 }
-
 
 function getCurrentMonth() {
   return getToday().slice(0, 7)
 }
 
-
 function formatMonth(monthString) {
+  if (!monthString) return ''
   const [year, month] = monthString.split('-')
-
-  const date = new Date(
-    Number(year),
-    Number(month) - 1,
-    1
-  )
-
-  return date.toLocaleDateString('en-IN', {
-    month: 'long',
-    year: 'numeric',
-  })
+  const date = new Date(Number(year), Number(month) - 1, 1)
+  return date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
 }
-
 
 function getPreviousMonth(monthString) {
   const [year, month] = monthString.split('-')
-
-  const date = new Date(
-    Number(year),
-    Number(month) - 2,
-    1
-  )
-
-  const previousYear = date.getFullYear()
-
-  const previousMonth = String(
-    date.getMonth() + 1
-  ).padStart(2, '0')
-
-  return `${previousYear}-${previousMonth}`
+  const date = new Date(Number(year), Number(month) - 2, 1)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 }
-
 
 function getAvailableMonths() {
   const months = []
   const currentMonth = getCurrentMonth()
-
   const [year, month] = currentMonth.split('-')
-
-  const currentDate = new Date(
-    Number(year),
-    Number(month) - 1,
-    1
-  )
+  const currentDate = new Date(Number(year), Number(month) - 1, 1)
 
   for (let i = 0; i < 12; i++) {
-    const date = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth() - i,
-      1
-    )
-
-    const monthYear = date.getFullYear()
-
-    const monthNumber = String(
-      date.getMonth() + 1
-    ).padStart(2, '0')
-
-    months.push(
-      `${monthYear}-${monthNumber}`
-    )
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1)
+    months.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`)
   }
-
   return months
 }
 
-
 function formatMoney(amount) {
-  return Number(amount).toLocaleString('en-IN')
+  return Number(amount || 0).toLocaleString('en-IN')
 }
 
+/* Toast Message Component */
+function ToastAlert({ message, type, onClose }) {
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        onClose()
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [message, onClose])
 
-/* =========================================================
-   CATEGORY BREAKDOWN (added for the MVP)
-   Shows where the selected month's expense money went.
-   Works for both the Individual and the Family tracker.
-   ========================================================= */
+  if (!message) return null
 
+  return (
+    <div className="toast-container">
+      <div className={`toast toast-${type}`}>
+        <span>{message}</span>
+        <button 
+          onClick={onClose} 
+          style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1rem', padding: '0 4px' }}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* Are You Sure Delete Modal */
+function ConfirmModal({ isOpen, title, message, onConfirm, onCancel }) {
+  if (!isOpen) return null
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-content">
+        <h3>{title || 'Are you sure?'}</h3>
+        <p style={{ margin: '12px 0 20px 0', color: '#4b5563' }}>{message}</p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <button className="btn-secondary" onClick={onCancel}>Cancel</button>
+          <button className="btn-danger" onClick={onConfirm}>Delete</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* Category Breakdown Chart */
 function CategoryBreakdown({ transactions }) {
   const totals = {}
-
   transactions
-    .filter((transaction) => transaction.type === 'expense')
-    .forEach((transaction) => {
-      const name = transaction.category || 'Other'
-
-      totals[name] =
-        (totals[name] || 0) + Number(transaction.amount || 0)
+    .filter((t) => t.type === 'expense')
+    .forEach((t) => {
+      const name = t.category || 'Other'
+      totals[name] = (totals[name] || 0) + Number(t.amount || 0)
     })
 
   const rows = Object.entries(totals).sort((a, b) => b[1] - a[1])
-
   const grandTotal = rows.reduce((sum, row) => sum + row[1], 0)
 
   return (
-    <div className="category-breakdown" data-testid="category-breakdown">
+    <div className="category-breakdown">
       <h2>📊 Spending by Category</h2>
-
       {rows.length === 0 ? (
-        <p>No expenses recorded for this month yet.</p>
+        <p style={{ color: '#6b7280' }}>No expenses recorded for this month yet.</p>
       ) : (
         <>
-          {rows.map(([name, total]) => (
-            <div
-              key={name}
-              className="category-row"
-              data-testid="category-row"
-              data-category={name}
-              data-total={total}
-            >
-              <div className="category-row-top">
-                <span>{name}</span>
-                <strong>₹{total.toLocaleString('en-IN')}</strong>
+          {rows.map(([name, total]) => {
+            const percentage = grandTotal > 0 ? Math.round((total / grandTotal) * 100) : 0
+            return (
+              <div key={name} style={{ marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                  <span>{name} ({percentage}%)</span>
+                  <strong>₹{formatMoney(total)}</strong>
+                </div>
+                <div className="category-bar-bg">
+                  <div className="category-bar-fill" style={{ width: `${percentage}%` }} />
+                </div>
               </div>
-
-              <div className="category-bar">
-                <div
-                  className="category-bar-fill"
-                  style={{ width: `${(total / grandTotal) * 100}%` }}
-                />
-              </div>
-            </div>
-          ))}
-
-          <p className="category-total" data-testid="category-grand-total">
-            <strong>Total expenses: ₹{grandTotal.toLocaleString('en-IN')}</strong>
-          </p>
+            )
+          })}
+          <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e5e7eb', textAlign: 'right' }}>
+            <strong>Total Expenses: ₹{formatMoney(grandTotal)}</strong>
+          </div>
         </>
       )}
     </div>
   )
 }
 
+/* CSV Exporter Utility */
+function exportToCSV(filename, headers, rows) {
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+  ].join('\n')
 
-/* =========================================================
-   COLOUR CODING (added for the MVP)
-   Same scheme as the Individual tracker:
-   green = money in, red = money out, blue = borrowed.
-   ========================================================= */
-
-function getTypeColor(type) {
-  if (type === 'salary' || type === 'extraIncome' || type === 'income') {
-    return 'green'
-  }
-
-  if (type === 'expense' || type === 'repayment') {
-    return 'red'
-  }
-
-  if (type === 'borrowed') {
-    return 'blue'
-  }
-
-  return 'inherit'
-}
-
-function getBalanceColor(amount) {
-  if (Number(amount) > 0) {
-    return 'green'
-  }
-
-  if (Number(amount) < 0) {
-    return 'red'
-  }
-
-  return 'inherit'
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.setAttribute('href', url)
+  link.setAttribute('download', filename)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 
@@ -209,2113 +166,433 @@ function getBalanceColor(amount) {
    ========================================================= */
 
 function IndividualTracker({ onBack }) {
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth())
+  const [transactions, setTransactions] = usePersistentState(
+    'spendwise.individual.transactions',
+    [],
+    Array.isArray
+  )
 
-  const [selectedMonth, setSelectedMonth] =
-    useState(getCurrentMonth())
+  const [transactionType, setTransactionType] = useState('salary')
+  const [amount, setAmount] = useState('')
+  const [category, setCategory] = useState('Salary')
+  const [note, setNote] = useState('')
+  const [date, setDate] = useState(getToday())
+  const [person, setPerson] = useState('')
+  const [dueDate, setDueDate] = useState('')
+  const [editingId, setEditingId] = useState(null)
 
+  const [showMoneyDue, setShowMoneyDue] = useState(false)
+  const [paymentBorrowedId, setPaymentBorrowedId] = useState(null)
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentDate, setPaymentDate] = useState(getToday())
 
-  /*
-    All transactions are kept here for now.
+  /* Toast Alerts */
+  const [toast, setToast] = useState({ message: '', type: 'success' })
+  
+  /* Confirm Delete Modal */
+  const [deleteId, setDeleteId] = useState(null)
 
-    IMPORTANT:
+  const showSuccess = (msg) => setToast({ message: msg, type: 'success' })
+  const showError = (msg) => setToast({ message: msg, type: 'error' })
 
-    borrowedId connects a repayment to the
-    original borrowing transaction.
-  */
-
-  const [transactions, setTransactions] =
-    usePersistentState(
-      'spendwise.individual.transactions',
-      [],
-      Array.isArray
-    )
-
-
-  /*
-    Add/edit form.
-  */
-
-  const [transactionType, setTransactionType] =
-    useState('salary')
-
-  const [amount, setAmount] =
-    useState('')
-
-  const [category, setCategory] =
-    useState('Salary')
-
-  const [note, setNote] =
-    useState('')
-
-  const [date, setDate] =
-    useState(getToday())
-
-  const [person, setPerson] =
-    useState('')
-
-  const [dueDate, setDueDate] =
-    useState('')
-
-
-  /*
-    Editing state.
-
-    null = adding a new transaction
-
-    number = editing an existing transaction
-  */
-
-  const [editingId, setEditingId] =
-    useState(null)
-
-
-  /*
-    Money Due panel.
-  */
-
-  const [showMoneyDue, setShowMoneyDue] =
-    useState(false)
-
-
-  /*
-    Payment modal.
-
-    When paying borrowed money, we keep track
-    of which borrowed transaction is being paid.
-  */
-
-  const [paymentBorrowedId, setPaymentBorrowedId] =
-    useState(null)
-
-  const [paymentAmount, setPaymentAmount] =
-    useState('')
-
-  const [paymentDate, setPaymentDate] =
-    useState(getToday())
-
-
-  /*
-    Error / information message.
-  */
-
-  const [message, setMessage] =
-    useState('')
-
-
-  const availableMonths =
-    getAvailableMonths()
-
-
-  /* =========================================================
-     CALCULATE HOW MUCH HAS BEEN REPAID
-     FOR A BORROWED TRANSACTION
-     ========================================================= */
+  const availableMonths = getAvailableMonths()
 
   function getPaidAmount(borrowedId) {
-
     return transactions
-      .filter(
-        (transaction) =>
-          transaction.type === 'repayment' &&
-          transaction.borrowedId === borrowedId
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount),
-        0
-      )
+      .filter((t) => t.type === 'repayment' && t.borrowedId === borrowedId)
+      .reduce((total, t) => total + Number(t.amount), 0)
   }
-
-
-  /* =========================================================
-     CALCULATE REMAINING AMOUNT
-     ========================================================= */
 
   function getRemainingAmount(borrowedTransaction) {
-
-    const paid = getPaidAmount(
-      borrowedTransaction.id
-    )
-
-    return Math.max(
-      0,
-      Number(borrowedTransaction.amount) - paid
-    )
+    const paid = getPaidAmount(borrowedTransaction.id)
+    return Math.max(0, Number(borrowedTransaction.amount) - paid)
   }
 
-
-  /* =========================================================
-     MONEY DUE
-     ========================================================= */
-
-  const moneyDue =
-    transactions.filter(
-      (transaction) =>
-        transaction.type === 'borrowed' &&
-        getRemainingAmount(transaction) > 0
-    )
-
-
-  /* =========================================================
-     START EDITING
-     ========================================================= */
+  const moneyDue = transactions.filter(
+    (t) => t.type === 'borrowed' && getRemainingAmount(t) > 0
+  )
 
   function startEditing(transaction) {
-
     setEditingId(transaction.id)
-
     setTransactionType(transaction.type)
-
     setAmount(transaction.amount)
-
     setCategory(transaction.category)
-
     setNote(transaction.note || '')
-
     setDate(transaction.date)
-
     setPerson(transaction.person || '')
-
     setDueDate(transaction.dueDate || '')
-
-    setMessage('Editing transaction.')
-
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    })
+    showSuccess('Editing transaction details...')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-
-
-  /* =========================================================
-     CANCEL EDITING
-     ========================================================= */
 
   function cancelEditing() {
-
     setEditingId(null)
-
     setAmount('')
-
     setNote('')
-
     setPerson('')
-
     setDueDate('')
-
     setDate(getToday())
-
     setTransactionType('salary')
-
     setCategory('Salary')
-
-    setMessage('')
   }
-
-
-  /* =========================================================
-     TRANSACTION TYPE CHANGE
-     ========================================================= */
 
   function handleTypeChange(type) {
-
     setTransactionType(type)
-
-    if (type === 'salary') {
-      setCategory('Salary')
-    }
-
-    if (type === 'income') {
-      setCategory('Gift')
-    }
-
-    if (type === 'expense') {
-      setCategory('Food')
-    }
-
-    if (type === 'borrowed') {
-      setCategory('Borrowed Money')
-    }
-
-    if (type === 'repayment') {
-      setCategory('Repayment')
-    }
+    if (type === 'salary') setCategory('Salary')
+    if (type === 'income') setCategory('Gift')
+    if (type === 'expense') setCategory('Food')
+    if (type === 'borrowed') setCategory('Borrowed Money')
+    if (type === 'repayment') setCategory('Repayment')
   }
 
-
-  /* =========================================================
-     ADD OR EDIT TRANSACTION
-     ========================================================= */
-
   function saveTransaction() {
-
     const numericAmount = Number(amount)
-
-    setMessage('')
-
-
-    /*
-      Basic amount validation.
-    */
-
     if (!numericAmount || numericAmount <= 0) {
-
-      setMessage(
-        'Please enter an amount greater than ₹0.'
-      )
-
+      showError('Please enter an amount greater than ₹0.')
       return
     }
-
-
-    /*
-      No future transaction dates.
-    */
-
     if (date > getToday()) {
-
-      setMessage(
-        'Future transaction dates are not allowed.'
-      )
-
+      showError('Future transaction dates are not allowed.')
       return
     }
-
-
-    /*
-      Transaction must belong to selected month.
-    */
-
-    if (
-      date.slice(0, 7) !== selectedMonth
-    ) {
-
-      setMessage(
-        `This transaction belongs to ${formatMonth(
-          date.slice(0, 7)
-        )}. Please select that month first.`
-      )
-
+    if (date.slice(0, 7) !== selectedMonth) {
+      showError(`Transaction date belongs to ${formatMonth(date.slice(0, 7))}.`)
       return
     }
-
-
-    /*
-      Borrowed money needs a person.
-    */
-
-    if (
-      transactionType === 'borrowed' &&
-      !person.trim()
-    ) {
-
-      setMessage(
-        'Please enter the name of the person you borrowed from.'
-      )
-
+    if (transactionType === 'borrowed' && !person.trim()) {
+      showError('Please enter the person borrowed from.')
       return
     }
-
-
-    /*
-      Borrowed money needs a due date.
-    */
-
-    if (
-      transactionType === 'borrowed' &&
-      !dueDate
-    ) {
-
-      setMessage(
-        'Please enter a repayment due date.'
-      )
-
+    if (transactionType === 'borrowed' && !dueDate) {
+      showError('Please enter a repayment due date.')
       return
     }
-
-
-    /*
-      Due date cannot be before the borrowing date.
-    */
-
-    if (
-      transactionType === 'borrowed' &&
-      dueDate < date
-    ) {
-
-      setMessage(
-        'The repayment due date cannot be before the borrowing date.'
-      )
-
+    if (transactionType === 'borrowed' && dueDate < date) {
+      showError('Due date cannot be before borrowing date.')
       return
     }
-
-
-    /*
-      If we are editing a borrowed transaction,
-      make sure existing repayments don't become
-      invalid.
-
-      A repayment can't happen before the new
-      borrowing date.
-    */
-
-    if (
-      editingId !== null &&
-      transactionType === 'borrowed'
-    ) {
-
-      const existingRepayments =
-        transactions.filter(
-          (transaction) =>
-            transaction.type === 'repayment' &&
-            transaction.borrowedId === editingId
-        )
-
-
-      const invalidRepayment =
-        existingRepayments.some(
-          (repayment) =>
-            repayment.date < date
-        )
-
-
-      if (invalidRepayment) {
-
-        setMessage(
-          'This borrowing date cannot be changed because one of its repayments would occur before the borrowing date.'
-        )
-
-        return
-      }
-    }
-
-
-    /* =======================================================
-       EDIT EXISTING TRANSACTION
-       ======================================================= */
 
     if (editingId !== null) {
-
-      const updatedTransactions =
-        transactions.map(
-          (transaction) => {
-
-            if (
-              transaction.id !== editingId
-            ) {
-              return transaction
-            }
-
-
-            return {
-              ...transaction,
-
-              amount: numericAmount,
-
-              type: transactionType,
-
-              category: category,
-
-              note: note,
-
-              date: date,
-
-              person: person,
-
-              dueDate: dueDate,
-            }
-          }
-        )
-
-
-      /*
-        If the transaction changes FROM borrowed
-        to something else, its existing repayments
-        would lose their parent.
-
-        We don't allow that.
-
-        The user should delete the repayments first
-        if they really want to change the borrowing
-        into another type.
-      */
-
-      const hadRepayments =
-        transactions.some(
-          (transaction) =>
-            transaction.type === 'repayment' &&
-            transaction.borrowedId === editingId
-        )
-
-
-      const originalTransaction =
-        transactions.find(
-          (transaction) =>
-            transaction.id === editingId
-        )
-
-
-      if (
-        originalTransaction?.type === 'borrowed' &&
-        transactionType !== 'borrowed' &&
-        hadRepayments
-      ) {
-
-        setMessage(
-          'This transaction already has repayments attached to it. Delete those repayments first before changing its type.'
-        )
-
-        return
-      }
-
-
       setTransactions(
-        updatedTransactions
+        transactions.map((t) =>
+          t.id === editingId
+            ? { ...t, amount: numericAmount, type: transactionType, category, note, date, person, dueDate }
+            : t
+        )
       )
-
-      setMessage(
-        'Transaction updated successfully.'
-      )
-
+      showSuccess('Transaction updated successfully.')
       cancelEditing()
-
       return
     }
 
-
-    /* =======================================================
-       ADD NEW TRANSACTION
-       ======================================================= */
-
     const newTransaction = {
-
       id: Date.now(),
-
       amount: numericAmount,
-
       type: transactionType,
-
-      category: category,
-
-      note: note,
-
-      date: date,
-
-      person: person,
-
-      dueDate: dueDate,
-
+      category,
+      note,
+      date,
+      person,
+      dueDate,
       borrowedId: null,
     }
 
-
-    setTransactions([
-      ...transactions,
-      newTransaction,
-    ])
-
-
+    setTransactions([...transactions, newTransaction])
     setAmount('')
-
     setNote('')
-
     setPerson('')
-
     setDueDate('')
-
     setDate(getToday())
-
-
-    setMessage(
-      'Transaction added successfully.'
-    )
+    showSuccess('Transaction added successfully.')
   }
-
-
-  /* =========================================================
-     OPEN REPAYMENT FORM
-     ========================================================= */
-
-  function openPaymentForm(borrowedTransaction) {
-
-    setPaymentBorrowedId(
-      borrowedTransaction.id
-    )
-
-    setPaymentAmount('')
-
-    /*
-      Payment defaults to today.
-    */
-
-    setPaymentDate(getToday())
-
-    setMessage('')
-  }
-
-
-  /* =========================================================
-     CLOSE REPAYMENT FORM
-     ========================================================= */
-
-  function closePaymentForm() {
-
-    setPaymentBorrowedId(null)
-
-    setPaymentAmount('')
-
-    setPaymentDate(getToday())
-  }
-
-
-  /* =========================================================
-     RECORD REPAYMENT
-     ========================================================= */
 
   function recordRepayment() {
+    if (!paymentBorrowedId) return
+    const borrowed = transactions.find((t) => t.id === paymentBorrowedId)
+    if (!borrowed) return
+    const numericPayment = Number(paymentAmount)
 
-    if (paymentBorrowedId === null) {
+    if (!numericPayment || numericPayment <= 0) {
+      showError('Please enter a valid repayment amount.')
       return
     }
-
-
-    const borrowedTransaction =
-      transactions.find(
-        (transaction) =>
-          transaction.id ===
-          paymentBorrowedId
-      )
-
-
-    if (!borrowedTransaction) {
+    if (paymentDate < borrowed.date) {
+      showError(`Repayment date cannot be before ${formatDate(borrowed.date)}.`)
       return
     }
-
-
-    const numericPayment =
-      Number(paymentAmount)
-
-
-    /*
-      Validate amount.
-    */
-
-    if (
-      !numericPayment ||
-      numericPayment <= 0
-    ) {
-
-      setMessage(
-        'Please enter a valid repayment amount.'
-      )
-
-      return
-    }
-
-
-    /*
-      Repayment cannot be before borrowing.
-    */
-
-    if (
-      paymentDate <
-      borrowedTransaction.date
-    ) {
-
-      setMessage(
-        `The repayment date cannot be before the borrowing date (${formatDate(
-          borrowedTransaction.date
-        )}).`
-      )
-
-      return
-    }
-
-
-    /*
-      Repayment cannot be in the future.
-    */
-
     if (paymentDate > getToday()) {
-
-      setMessage(
-        'Future repayment dates are not allowed.'
-      )
-
+      showError('Future repayment dates are not allowed.')
       return
     }
 
-
-    /*
-      Calculate how much is still owed.
-    */
-
-    const remaining =
-      getRemainingAmount(
-        borrowedTransaction
-      )
-
-
-    /*
-      Don't allow overpayment.
-
-      If ₹3,000 is owed, the user can't enter
-      ₹3,500 as a repayment.
-    */
-
+    const remaining = getRemainingAmount(borrowed)
     if (numericPayment > remaining) {
-
-      setMessage(
-        `You only have ₹${formatMoney(
-          remaining
-        )} remaining to repay.`
-      )
-
+      showError(`Maximum repayment amount due is ₹${formatMoney(remaining)}.`)
       return
     }
-
-
-    /*
-      Create the repayment.
-
-      borrowedId connects this repayment to
-      the original borrowing.
-    */
 
     const repayment = {
-
       id: Date.now(),
-
       amount: numericPayment,
-
       type: 'repayment',
-
       category: 'Repayment',
-
-      note:
-        `Repayment to ${borrowedTransaction.person}`,
-
+      note: `Repayment to ${borrowed.person}`,
       date: paymentDate,
-
-      person: borrowedTransaction.person,
-
+      person: borrowed.person,
       dueDate: '',
-
-      borrowedId:
-        borrowedTransaction.id,
+      borrowedId: borrowed.id,
     }
 
-
-    setTransactions([
-      ...transactions,
-      repayment,
-    ])
-
-
-    closePaymentForm()
-
-    setMessage(
-      numericPayment === remaining
-        ? `₹${formatMoney(
-            numericPayment
-          )} fully repaid.`
-        : `₹${formatMoney(
-            numericPayment
-          )} repaid. ₹${formatMoney(
-            remaining - numericPayment
-          )} is still due.`
-    )
+    setTransactions([...transactions, repayment])
+    setPaymentBorrowedId(null)
+    setPaymentAmount('')
+    showSuccess('Repayment recorded successfully!')
   }
 
-
-  /* =========================================================
-     DELETE TRANSACTION
-     ========================================================= */
-
-  function deleteTransaction(id) {
-
-    const transaction =
-      transactions.find(
-        (item) => item.id === id
+  function handleConfirmDelete() {
+    if (!deleteId) return
+    const target = transactions.find((t) => t.id === deleteId)
+    if (target?.type === 'borrowed') {
+      const hasRepayments = transactions.some(
+        (t) => t.type === 'repayment' && t.borrowedId === deleteId
       )
-
-
-    /*
-      If a borrowed transaction has repayments,
-      don't let the user accidentally delete the
-      parent and leave orphaned repayments.
-    */
-
-    if (
-      transaction?.type === 'borrowed'
-    ) {
-
-      const hasRepayments =
-        transactions.some(
-          (item) =>
-            item.type === 'repayment' &&
-            item.borrowedId === id
-        )
-
-
       if (hasRepayments) {
-
-        setMessage(
-          'This borrowing has repayments attached to it. Delete the repayments first.'
-        )
-
+        showError('Delete associated repayments first before removing this borrowed entry.')
+        setDeleteId(null)
         return
       }
     }
 
-
-    const updatedTransactions =
-      transactions.filter(
-        (item) => item.id !== id
-      )
-
-
-    setTransactions(
-      updatedTransactions
-    )
+    setTransactions(transactions.filter((t) => t.id !== deleteId))
+    setDeleteId(null)
+    showSuccess('Transaction deleted.')
   }
 
-
-  /* =========================================================
-     MONTHLY DATA
-     ========================================================= */
-
-  const monthTransactions =
-    transactions.filter(
-      (transaction) =>
-        transaction.date.slice(0, 7) ===
-        selectedMonth
-    )
-
-
-  const salary =
-    monthTransactions
-      .filter(
-        (transaction) =>
-          transaction.type === 'salary'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount),
-        0
-      )
-
-
-  const extraIncome =
-    monthTransactions
-      .filter(
-        (transaction) =>
-          transaction.type === 'income'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount),
-        0
-      )
-
-
-  const totalIncome =
-    salary + extraIncome
-
-
-  const totalExpenses =
-    monthTransactions
-      .filter(
-        (transaction) =>
-          transaction.type === 'expense'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount),
-        0
-      )
-
-
-  const totalRepayments =
-    monthTransactions
-      .filter(
-        (transaction) =>
-          transaction.type === 'repayment'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount),
-        0
-      )
-
-
-  /*
-    Savings now accounts for repayments too.
-
-    Example:
-
-    Income       ₹50,000
-    Expenses     ₹20,000
-    Repayments    ₹2,000
-
-    Actual remaining money:
-
-    ₹28,000
-  */
-
-  const monthlySavings =
-    totalIncome -
-    totalExpenses -
-    totalRepayments
-
-
-  /* =========================================================
-     PREVIOUS MONTH
-     ========================================================= */
-
-  const previousMonth =
-    getPreviousMonth(selectedMonth)
-
-
-  const previousMonthTransactions =
-    transactions.filter(
-      (transaction) =>
-        transaction.date.slice(0, 7) ===
-        previousMonth
-    )
-
-
-  const previousIncome =
-    previousMonthTransactions
-      .filter(
-        (transaction) =>
-          transaction.type === 'salary' ||
-          transaction.type === 'income'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount),
-        0
-      )
-
-
-  const previousExpenses =
-    previousMonthTransactions
-      .filter(
-        (transaction) =>
-          transaction.type === 'expense' ||
-          transaction.type === 'repayment'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount),
-        0
-      )
-
-
-  const previousSavings =
-    previousIncome -
-    previousExpenses
-
-
-  const savingsDifference =
-    monthlySavings -
-    previousSavings
-
-
-  /* =========================================================
-     INSIGHT
-     ========================================================= */
-
-  function getInsight() {
-
-    if (
-      previousMonthTransactions.length === 0
-    ) {
-
-      return `Keep tracking your ${formatMonth(
-        selectedMonth
-      )} transactions. SpendWise will compare this month with previous months once data is available.`
-    }
-
-
-    if (savingsDifference > 0) {
-
-      return `🎉 You saved ₹${formatMoney(
-        savingsDifference
-      )} more than ${formatMonth(
-        previousMonth
-      )}.`
-    }
-
-
-    if (savingsDifference < 0) {
-
-      return `💡 You saved ₹${formatMoney(
-        Math.abs(savingsDifference)
-      )} less than ${formatMonth(
-        previousMonth
-      )}.`
-    }
-
-
-    return `Your savings were the same as ${formatMonth(
-      previousMonth
-    )}.`
+  function handleExportCSV() {
+    const headers = ['Date', 'Type', 'Category', 'Amount (INR)', 'Person', 'Due Date', 'Note']
+    const rows = monthTransactions.map(t => [
+      t.date,
+      t.type,
+      t.category,
+      t.amount,
+      t.person || '',
+      t.dueDate || '',
+      t.note || ''
+    ])
+    exportToCSV(`individual_expenses_${selectedMonth}.csv`, headers, rows)
+    showSuccess('CSV export downloaded successfully!')
   }
 
+  function loadSampleData() {
+    const curr = selectedMonth
+    const samples = [
+      { id: Date.now() + 1, amount: 65000, type: 'salary', category: 'Salary', note: 'Monthly Salary', date: `${curr}-01`, person: '', dueDate: '', borrowedId: null },
+      { id: Date.now() + 2, amount: 3500, type: 'expense', category: 'Food', note: 'Grocery shopping', date: `${curr}-03`, person: '', dueDate: '', borrowedId: null },
+      { id: Date.now() + 3, amount: 1200, type: 'expense', category: 'Transport', note: 'Metro pass', date: `${curr}-05`, person: '', dueDate: '', borrowedId: null },
+      { id: Date.now() + 4, amount: 5000, type: 'income', category: 'Bonus', note: 'Performance reward', date: `${curr}-10`, person: '', dueDate: '', borrowedId: null }
+    ]
+    setTransactions([...transactions, ...samples])
+    showSuccess('Sample data loaded for demonstration!')
+  }
 
-  /* =========================================================
-     SORT + GROUP
-     ========================================================= */
+  const monthTransactions = transactions.filter(
+    (t) => t.date.slice(0, 7) === selectedMonth
+  )
 
-  const sortedTransactions =
-    [...monthTransactions].sort(
-      (a, b) =>
-        b.date.localeCompare(a.date)
-    )
+  const salary = monthTransactions.filter((t) => t.type === 'salary').reduce((a, b) => a + Number(b.amount), 0)
+  const extraIncome = monthTransactions.filter((t) => t.type === 'income').reduce((a, b) => a + Number(b.amount), 0)
+  const totalIncome = salary + extraIncome
+  const totalExpenses = monthTransactions.filter((t) => t.type === 'expense').reduce((a, b) => a + Number(b.amount), 0)
+  const totalRepayments = monthTransactions.filter((t) => t.type === 'repayment').reduce((a, b) => a + Number(b.amount), 0)
+  const monthlySavings = totalIncome - totalExpenses - totalRepayments
 
-
-  const transactionsByDate =
-    sortedTransactions.reduce(
-      (groups, transaction) => {
-
-        if (!groups[transaction.date]) {
-          groups[transaction.date] = []
-        }
-
-        groups[transaction.date].push(
-          transaction
-        )
-
-        return groups
-      },
-      {}
-    )
-
-
-  /* =========================================================
-     UI
-     ========================================================= */
+  const sortedTransactions = [...monthTransactions].sort((a, b) => b.date.localeCompare(a.date))
 
   return (
+    <div className="tracker">
+      <ToastAlert message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
+      <ConfirmModal 
+        isOpen={Boolean(deleteId)} 
+        title="Confirm Deletion"
+        message="Are you sure you want to delete this transaction entry?" 
+        onConfirm={handleConfirmDelete} 
+        onCancel={() => setDeleteId(null)} 
+      />
 
-    <div
-      className="tracker"
-      style={{
-        padding: '20px',
-        position: 'relative',
-      }}
-    >
-
-      {/* =====================================================
-          MONEY DUE BUTTON
-          ===================================================== */}
-
-      <button
-        onClick={() =>
-          setShowMoneyDue(
-            !showMoneyDue
-          )
-        }
-
-        className="money-due-btn"
-
-        style={{
-          position: 'absolute',
-          top: '20px',
-          right: '20px',
-        }}
-      >
-        💰 Money Due
-        {moneyDue.length > 0 &&
-          ` (${moneyDue.length})`}
-      </button>
-
-
-      {/* =====================================================
-          MONEY DUE PANEL
-          ===================================================== */}
-
-      {showMoneyDue && (
-
-        <div
-          className="money-due-panel"
-          style={{
-            position: 'absolute',
-            top: '60px',
-            right: '20px',
-            width: '320px',
-            padding: '15px',
-            border: '1px solid #ccc',
-            borderRadius: '8px',
-            background: 'white',
-            zIndex: 10,
-          }}
-        >
-
-          <h3>
-            💰 Money Due
-          </h3>
-
-
-          {moneyDue.length === 0 ? (
-
-            <p>
-              🎉 You have no outstanding repayments.
-            </p>
-
-          ) : (
-
-            moneyDue.map(
-              (borrowed) => {
-
-                const remaining =
-                  getRemainingAmount(
-                    borrowed
-                  )
-
-                const paid =
-                  Number(
-                    borrowed.amount
-                  ) - remaining
-
-
-                return (
-
-                  <div
-                    key={borrowed.id}
-                    style={{
-                      marginBottom: '15px',
-                    }}
-                  >
-
-                    <strong>
-                      {borrowed.person}
-                    </strong>
-
-
-                    <p>
-                      Originally borrowed:
-                      {' '}
-                      ₹
-                      {formatMoney(
-                        borrowed.amount
-                      )}
-                    </p>
-
-
-                    {paid > 0 && (
-                      <p>
-                        Already paid:
-                        {' '}
-                        ₹
-                        {formatMoney(paid)}
-                      </p>
-                    )}
-
-
-                    <p>
-                      <strong>
-                        Still due:
-                        {' '}
-                        ₹
-                        {formatMoney(
-                          remaining
-                        )}
-                      </strong>
-                    </p>
-
-
-                    <p>
-                      Due date:
-                      {' '}
-                      {formatDate(
-                        borrowed.dueDate
-                      )}
-                    </p>
-
-
-                    <button
-                      onClick={() =>
-                        openPaymentForm(
-                          borrowed
-                        )
-                      }
-                    >
-                      Record Payment
-                    </button>
-
-
-                    <hr />
-
-                  </div>
-
-                )
-              }
-            )
-
-          )}
-
+      <div className="top-bar-nav">
+        <button onClick={onBack} className="btn-secondary">← Back to Home</button>
+        <div className="action-buttons-group">
+          <button onClick={loadSampleData} className="btn-secondary">⚡ Load Sample Data</button>
+          <button onClick={handleExportCSV} className="btn-secondary">📥 Export CSV</button>
+          <button onClick={() => setShowMoneyDue(!showMoneyDue)}>
+            💰 Money Due {moneyDue.length > 0 && `(${moneyDue.length})`}
+          </button>
         </div>
-
-      )}
-
-
-      <h1>
-        Individual Expense Tracker
-      </h1>
-
-
-      <button onClick={onBack}>
-        ← Back
-      </button>
-
-
-      <hr />
-
-
-      {/* =====================================================
-          PAYMENT FORM
-          ===================================================== */}
-
-      {paymentBorrowedId !== null && (
-
-        <div
-          style={{
-            border: '2px solid #ccc',
-            padding: '15px',
-            marginBottom: '20px',
-          }}
-        >
-
-          <h2>
-            Record Repayment
-          </h2>
-
-
-          {(() => {
-
-            const borrowed =
-              transactions.find(
-                (transaction) =>
-                  transaction.id ===
-                  paymentBorrowedId
-              )
-
-
-            if (!borrowed) {
-              return null
-            }
-
-
-            const remaining =
-              getRemainingAmount(
-                borrowed
-              )
-
-
-            return (
-
-              <>
-
-                <p>
-                  Repaying:
-                  {' '}
-                  <strong>
-                    {borrowed.person}
-                  </strong>
-                </p>
-
-
-                <p>
-                  Remaining:
-                  {' '}
-                  ₹
-                  {formatMoney(
-                    remaining
-                  )}
-                </p>
-
-
-                <p>
-                  Payment amount
-                </p>
-
-
-                <input
-                  type="number"
-                  min="1"
-                  max={remaining}
-                  placeholder="Amount paid"
-                  value={paymentAmount}
-                  onChange={(e) =>
-                    setPaymentAmount(
-                      e.target.value
-                    )
-                  }
-                />
-
-
-                <p>
-                  Date paid
-                </p>
-
-
-                <input
-                  type="date"
-                  min={borrowed.date}
-                  max={getToday()}
-                  value={paymentDate}
-                  onChange={(e) =>
-                    setPaymentDate(
-                      e.target.value
-                    )
-                  }
-                />
-
-
-                <br />
-                <br />
-
-
-                <button
-                  onClick={
-                    recordRepayment
-                  }
-                >
-                  Confirm Payment
-                </button>
-
-
-                {' '}
-
-
-                <button
-                  onClick={
-                    closePaymentForm
-                  }
-                >
-                  Cancel
-                </button>
-
-              </>
-
-            )
-          })()}
-
-        </div>
-
-      )}
-
-
-      {/* =====================================================
-          MESSAGE
-          ===================================================== */}
-
-      {message && (
-
-        <p>
-          <strong>
-            {message}
-          </strong>
-        </p>
-
-      )}
-
-
-      <section className="card">
-
-      {/* =====================================================
-          MONTH
-          ===================================================== */}
-
-      <h2>
-        Month
-      </h2>
-
-
-      <select
-        value={selectedMonth}
-        onChange={(e) =>
-          setSelectedMonth(
-            e.target.value
-          )
-        }
-      >
-
-        {availableMonths.map(
-          (month) => (
-
-            <option
-              key={month}
-              value={month}
-            >
-              {formatMonth(month)}
-            </option>
-
-          )
-        )}
-
-      </select>
-
-
-      </section>
-
-      <section className="card">
-
-
-      {/* =====================================================
-          SUMMARY
-          ===================================================== */}
-
-      <h2>
-        {formatMonth(
-          selectedMonth
-        )} Summary
-      </h2>
-
-
-      <p>
-        💼 Salary:
-        {' '}
-        ₹
-        {formatMoney(salary)}
-      </p>
-
-
-      <p
-        style={{
-          color: 'green',
-        }}
-      >
-        + Extra Income:
-        {' '}
-        ₹
-        {formatMoney(extraIncome)}
-      </p>
-
-
-      <p>
-        <strong>
-          Total Income:
-          {' '}
-          ₹
-          {formatMoney(totalIncome)}
-        </strong>
-      </p>
-
-
-      <p
-        style={{
-          color: 'red',
-        }}
-      >
-        − Expenses:
-        {' '}
-        ₹
-        {formatMoney(totalExpenses)}
-      </p>
-
-
-      <p
-        style={{
-          color: 'red',
-        }}
-      >
-        − Repayments:
-        {' '}
-        ₹
-        {formatMoney(totalRepayments)}
-      </p>
-
-
-      <hr />
-
-
-      <h2>
-
-        {monthlySavings >= 0
-
-          ? `💰 Saved: ₹${formatMoney(
-              monthlySavings
-            )}`
-
-          : `⚠️ Negative Balance: ₹${formatMoney(
-              Math.abs(
-                monthlySavings
-              )
-            )}`}
-
-      </h2>
-
-
-      </section>
-
-      <section className="card">
-
-      <CategoryBreakdown transactions={monthTransactions} />
-
-      </section>
-
-      <section className="card">
-
-
-      {/* =====================================================
-          INSIGHT
-          ===================================================== */}
-
-      <h2>
-        ✨ SpendWise Insight
-      </h2>
-
-
-      <p>
-        {getInsight()}
-      </p>
-
-
-      </section>
-
-      <section className="card">
-
-
-      {/* =====================================================
-          ADD / EDIT TRANSACTION
-          ===================================================== */}
-
-      <h2>
-        {editingId !== null
-          ? '✏️ Edit Transaction'
-          : 'Add Transaction'}
-      </h2>
-
-
-      <p>
-        Transaction Type
-      </p>
-
-
-      <select
-        value={transactionType}
-        onChange={(e) =>
-          handleTypeChange(
-            e.target.value
-          )
-        }
-      >
-
-        <option value="salary">
-          Salary
-        </option>
-
-        <option value="income">
-          Extra Income
-        </option>
-
-        <option value="expense">
-          Expense
-        </option>
-
-        <option value="borrowed">
-          Borrowed Money
-        </option>
-
-        <option value="repayment">
-          Repayment
-        </option>
-
-      </select>
-
-
-      <p>
-        Amount
-      </p>
-
-
-      <input
-        type="number"
-        min="1"
-        placeholder="Enter amount"
-        value={amount}
-        onChange={(e) =>
-          setAmount(
-            e.target.value
-          )
-        }
-      />
-
-
-      {/* =====================================================
-          CATEGORY
-          ===================================================== */}
-
-      <p>
-        Category
-      </p>
-
-
-      {transactionType === 'salary' && (
-
-        <select
-          value={category}
-          onChange={(e) =>
-            setCategory(
-              e.target.value
-            )
-          }
-        >
-
-          <option value="Salary">
-            Salary
-          </option>
-
-        </select>
-
-      )}
-
-
-      {transactionType === 'income' && (
-
-        <select
-          value={category}
-          onChange={(e) =>
-            setCategory(
-              e.target.value
-            )
-          }
-        >
-
-          <option value="Gift">
-            Gift
-          </option>
-
-          <option value="Bonus">
-            Bonus
-          </option>
-
-          <option value="Bank Interest">
-            Bank Interest
-          </option>
-
-          <option value="Other Income">
-            Other Income
-          </option>
-
-        </select>
-
-      )}
-
-
-      {transactionType === 'expense' && (
-
-        <select
-          value={category}
-          onChange={(e) =>
-            setCategory(
-              e.target.value
-            )
-          }
-        >
-
-          <option value="Food">
-            Food
-          </option>
-
-          <option value="Transport">
-            Transport
-          </option>
-
-          <option value="Shopping">
-            Shopping
-          </option>
-
-          <option value="Entertainment">
-            Entertainment
-          </option>
-
-          <option value="Education">
-            Education
-          </option>
-
-          <option value="Bills">
-            Bills
-          </option>
-
-          <option value="Health">
-            Health
-          </option>
-
-          <option value="Other">
-            Other
-          </option>
-
-        </select>
-
-      )}
-
-
-      {transactionType === 'borrowed' && (
-
-        <p>
-          Borrowed Money
-        </p>
-
-      )}
-
-
-      {transactionType === 'repayment' && (
-
-        <p>
-          Repayment
-        </p>
-
-      )}
-
-
-      {/* =====================================================
-          PERSON
-          ===================================================== */}
-
-      {(transactionType === 'borrowed' ||
-        transactionType === 'repayment') && (
-
-        <>
-
-          <p>
-            Person
-          </p>
-
-
-          <input
-            type="text"
-            placeholder="Person's name"
-            value={person}
-            onChange={(e) =>
-              setPerson(
-                e.target.value
-              )
-            }
-          />
-
-        </>
-
-      )}
-
-
-      {/* =====================================================
-          DUE DATE
-          ===================================================== */}
-
-      {transactionType === 'borrowed' && (
-
-        <>
-
-          <p>
-            Repayment Due Date
-          </p>
-
-
-          <input
-            type="date"
-            min={date}
-            value={dueDate}
-            onChange={(e) =>
-              setDueDate(
-                e.target.value
-              )
-            }
-          />
-
-        </>
-
-      )}
-
-
-      {/* =====================================================
-          NOTE
-          ===================================================== */}
-
-      <p>
-        Note
-      </p>
-
-
-      <input
-        type="text"
-        placeholder="Add a note"
-        value={note}
-        onChange={(e) =>
-          setNote(
-            e.target.value
-          )
-        }
-      />
-
-
-      {/* =====================================================
-          DATE
-          ===================================================== */}
-
-      <p>
-        Transaction Date
-      </p>
-
-
-      <input
-        type="date"
-        max={getToday()}
-        value={date}
-        onChange={(e) =>
-          setDate(
-            e.target.value
-          )
-        }
-      />
-
-
-      <br />
-      <br />
-
-
-      <button
-        onClick={
-          saveTransaction
-        }
-      >
-        {editingId !== null
-          ? 'Save Changes'
-          : 'Add Transaction'}
-      </button>
-
-
-      {editingId !== null && (
-
-        <button
-          onClick={
-            cancelEditing
-          }
-        >
-          Cancel Edit
-        </button>
-
-      )}
-
-
-      </section>
-
-      <section className="card">
-
-
-      {/* =====================================================
-          DIARY
-          ===================================================== */}
-
-      <h2>
-        📖 {formatMonth(
-          selectedMonth
-        )} Diary
-      </h2>
-
-
-      {monthTransactions.length === 0 ? (
-
-        <p>
-          No transactions recorded for this month yet.
-        </p>
-
-      ) : (
-
-        Object.entries(
-          transactionsByDate
-        ).map(
-          ([transactionDate, dateTransactions]) => (
-
-            <div
-              key={transactionDate}
-            >
-
-              <h3>
-                {formatDate(
-                  transactionDate
-                )}
-              </h3>
-
-
-              {dateTransactions.map(
-                (transaction) => {
-
-                  const isCredit =
-                    transaction.type === 'salary' ||
-                    transaction.type === 'income'
-
-
-                  const isDebit =
-                    transaction.type === 'expense' ||
-                    transaction.type === 'repayment'
-
-
-                  const isBorrowed =
-                    transaction.type === 'borrowed'
-
-
-                  return (
-
-                    <div
-                      key={transaction.id}
-                    >
-
-                      <p>
-
-                        <strong>
-
-                          {isCredit && (
-
-                            <span
-                              style={{
-                                color: 'green',
-                              }}
-                            >
-                              +
-                            </span>
-
-                          )}
-
-
-                          {isDebit && (
-
-                            <span
-                              style={{
-                                color: 'red',
-                              }}
-                            >
-                              −
-                            </span>
-
-                          )}
-
-
-                          {isBorrowed && (
-
-                            <span
-                              style={{
-                                color: 'blue',
-                              }}
-                            >
-                              +
-                            </span>
-
-                          )}
-
-
-                          {' ₹'}
-
-                          {formatMoney(
-                            transaction.amount
-                          )}
-
-                        </strong>
-
-
-                        {' — '}
-
-
-                        {transaction.category}
-
-                      </p>
-
-
-                      {transaction.person && (
-
-                        <p>
-                          Person:
-                          {' '}
-                          {transaction.person}
-                        </p>
-
-                      )}
-
-
-                      {transaction.note && (
-
-                        <p>
-                          {transaction.note}
-                        </p>
-
-                      )}
-
-
-                      {transaction.dueDate && (
-
-                        <p>
-                          Due:
-                          {' '}
-                          {formatDate(
-                            transaction.dueDate
-                          )}
-                        </p>
-
-                      )}
-
-
-                      {/* REMAINING BALANCE
-                          FOR BORROWING */}
-
-                      {transaction.type === 'borrowed' && (
-
-                        <p>
-
-                          Still due:
-                          {' '}
-
-                          <strong>
-                            ₹
-                            {formatMoney(
-                              getRemainingAmount(
-                                transaction
-                              )
-                            )}
-                          </strong>
-
-                        </p>
-
-                      )}
-
-
-                      {/* EDIT */}
-
-                      <button
-                        onClick={() =>
-                          startEditing(
-                            transaction
-                          )
-                        }
-                      >
-                        ✏️ Edit
-                      </button>
-
-
-                      {' '}
-
-
-                      {/* DELETE */}
-
-                      <button
-                        onClick={() =>
-                          deleteTransaction(
-                            transaction.id
-                          )
-                        }
-                      >
-                        Delete
-                      </button>
-
-
-                      <hr />
-
-                    </div>
-
-                  )
-                }
-              )}
-
-            </div>
-
-          )
-        )
-
-      )}
-
-            </section>
-
-      {/* =====================================================
-          MONTH NAVIGATION
-          ===================================================== */}
-
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: '30px',
-          padding: '15px 0',
-          borderTop: '1px solid #ddd',
-        }}
-      >
-
-        <button
-          onClick={() => {
-
-            const currentIndex =
-              availableMonths.indexOf(
-                selectedMonth
-              )
-
-            if (
-              currentIndex <
-              availableMonths.length - 1
-            ) {
-
-              setSelectedMonth(
-                availableMonths[
-                  currentIndex + 1
-                ]
-              )
-
-            }
-
-          }}
-
-          disabled={
-            availableMonths.indexOf(
-              selectedMonth
-            ) ===
-            availableMonths.length - 1
-          }
-        >
-          ← Previous Month
-        </button>
-
-
-        <strong>
-          {formatMonth(selectedMonth)}
-        </strong>
-
-
-        <button
-          onClick={() => {
-
-            const currentIndex =
-              availableMonths.indexOf(
-                selectedMonth
-              )
-
-            if (currentIndex > 0) {
-
-              setSelectedMonth(
-                availableMonths[
-                  currentIndex - 1
-                ]
-              )
-
-            }
-
-          }}
-
-          disabled={
-            availableMonths.indexOf(
-              selectedMonth
-            ) === 0
-          }
-        >
-          Next Month →
-        </button>
-
       </div>
 
-    </div>
+      <h1>Individual Expense Tracker</h1>
+      <hr />
 
+      {/* Money Due Drawer */}
+      {showMoneyDue && (
+        <div className="card" style={{ borderColor: '#4f46e5', backgroundColor: '#eef2ff' }}>
+          <h3>💰 Outstanding Borrowed Money</h3>
+          {moneyDue.length === 0 ? (
+            <p>🎉 No outstanding money due.</p>
+          ) : (
+            moneyDue.map((b) => (
+              <div key={b.id} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid #c7d2fe' }}>
+                <strong>{b.person}</strong> — Due: {formatDate(b.dueDate)}
+                <br />
+                Remaining: <strong style={{ color: '#dc2626' }}>₹{formatMoney(getRemainingAmount(b))}</strong>
+                <button onClick={() => setPaymentBorrowedId(b.id)} style={{ marginLeft: '10px', padding: '4px 8px' }}>Record Repayment</button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Payment Form Modal Inline */}
+      {paymentBorrowedId && (
+        <div className="card" style={{ border: '2px solid #4f46e5' }}>
+          <h3>Record Repayment</h3>
+          <input type="number" placeholder="Payment Amount" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} />
+          <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+          <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+            <button onClick={recordRepayment}>Confirm Repayment</button>
+            <button className="btn-secondary" onClick={() => setPaymentBorrowedId(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Stat Cards Summary */}
+      <section className="card">
+        <h2>{formatMonth(selectedMonth)} Summary</h2>
+        <div className="stat-grid">
+          <div className="stat-card">
+            <div className="stat-card-title">Salary</div>
+            <div className="stat-card-value green">₹{formatMoney(salary)}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-card-title">Extra Income</div>
+            <div className="stat-card-value green">₹{formatMoney(extraIncome)}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-card-title">Total Income</div>
+            <div className="stat-card-value green">₹{formatMoney(totalIncome)}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-card-title">Expenses</div>
+            <div className="stat-card-value red">₹{formatMoney(totalExpenses)}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-card-title">Repayments</div>
+            <div className="stat-card-value red">₹{formatMoney(totalRepayments)}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-card-title">Net Savings</div>
+            <div className={`stat-card-value ${monthlySavings >= 0 ? 'green' : 'red'}`}>
+              ₹{formatMoney(monthlySavings)}
+            </div>
+          </div>
+        </div>
+
+        <label><strong>Select Month: </strong></label>
+        <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={{ width: 'auto', display: 'inline-block' }}>
+          {availableMonths.map((m) => (
+            <option key={m} value={m}>{formatMonth(m)}</option>
+          ))}
+        </select>
+      </section>
+
+      {/* Category Chart Breakdown */}
+      <section className="card">
+        <CategoryBreakdown transactions={monthTransactions} />
+      </section>
+
+      {/* Add / Edit Form */}
+      <section className="card">
+        <h2>{editingId !== null ? '✏️ Edit Transaction' : '➕ Add Transaction'}</h2>
+        
+        <label>Type</label>
+        <select value={transactionType} onChange={(e) => handleTypeChange(e.target.value)}>
+          <option value="salary">Salary</option>
+          <option value="income">Extra Income</option>
+          <option value="expense">Expense</option>
+          <option value="borrowed">Borrowed Money</option>
+          <option value="repayment">Repayment</option>
+        </select>
+
+        <label>Amount (₹)</label>
+        <input type="number" min="1" placeholder="Enter amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
+
+        {transactionType === 'expense' && (
+          <>
+            <label>Category</label>
+            <select value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="Food">Food</option>
+              <option value="Transport">Transport</option>
+              <option value="Shopping">Shopping</option>
+              <option value="Entertainment">Entertainment</option>
+              <option value="Education">Education</option>
+              <option value="Bills">Bills</option>
+              <option value="Health">Health</option>
+              <option value="Other">Other</option>
+            </select>
+          </>
+        )}
+
+        {(transactionType === 'borrowed' || transactionType === 'repayment') && (
+          <>
+            <label>Person</label>
+            <input type="text" placeholder="Person name" value={person} onChange={(e) => setPerson(e.target.value)} />
+          </>
+        )}
+
+        {transactionType === 'borrowed' && (
+          <>
+            <label>Due Date</label>
+            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </>
+        )}
+
+        <label>Note</label>
+        <input type="text" placeholder="Optional notes" value={note} onChange={(e) => setNote(e.target.value)} />
+
+        <label>Date</label>
+        <input type="date" max={getToday()} value={date} onChange={(e) => setDate(e.target.value)} />
+
+        <div style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
+          <button onClick={saveTransaction}>{editingId !== null ? 'Save Changes' : 'Add Transaction'}</button>
+          {editingId !== null && <button className="btn-secondary" onClick={cancelEditing}>Cancel Edit</button>}
+        </div>
+      </section>
+
+      {/* Transactions List Diary */}
+      <section className="card">
+        <h2>📖 {formatMonth(selectedMonth)} Transactions Diary</h2>
+        {sortedTransactions.length === 0 ? (
+          <p style={{ color: '#6b7280' }}>No entries found for this month.</p>
+        ) : (
+          sortedTransactions.map((t) => (
+            <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #e5e7eb', alignItems: 'center' }}>
+              <div>
+                <strong>{t.category}</strong> {t.person && `(${t.person})`} — <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>{formatDate(t.date)}</span>
+                {t.note && <div style={{ fontSize: '0.85rem', color: '#4b5563' }}>{t.note}</div>}
+              </div>
+              <div>
+                <strong style={{ color: t.type === 'expense' || t.type === 'repayment' ? '#dc2626' : '#16a34a', marginRight: '12px' }}>
+                  ₹{formatMoney(t.amount)}
+                </strong>
+                <button className="btn-secondary" onClick={() => startEditing(t)} style={{ padding: '4px 8px', marginRight: '4px' }}>✏️ Edit</button>
+                <button className="btn-danger" onClick={() => setDeleteId(t.id)} style={{ padding: '4px 8px' }}>Delete</button>
+              </div>
+            </div>
+          ))
+        )}
+      </section>
+    </div>
   )
 }
 
@@ -2324,2880 +601,416 @@ function IndividualTracker({ onBack }) {
    FAMILY TRACKER
    ========================================================= */
 
-function FamilyTracker() {
-  // =========================================================
-  // FAMILY TRACKER
-  // Front-end prototype only.
-  // Data will later move to Supabase.
-  // =========================================================
-
-  const getTodayLocal = () => {
-    const now = new Date()
-
-    const year = now.getFullYear()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const day = String(now.getDate()).padStart(2, '0')
-
-    return `${year}-${month}-${day}`
-  }
-
-  const getCurrentMonthLocal = () => {
-    return getTodayLocal().slice(0, 7)
-  }
-
-  const formatFamilyDate = (date) => {
-    if (!date) return ''
-
-    const parts = date.split('-')
-
-    if (parts.length !== 3) return date
-
-    return `${parts[2]}-${parts[1]}-${parts[0]}`
-  }
-
-  const formatFamilyMonth = (month) => {
-    if (!month) return ''
-
-    const [year, monthNumber] = month.split('-')
-
-    const date = new Date(
-      Number(year),
-      Number(monthNumber) - 1,
-      1
-    )
-
-    return date.toLocaleString('en-IN', {
-      month: 'long',
-      year: 'numeric',
-    })
-  }
-
-  const getFamilyPreviousMonth = (month) => {
-    const [year, monthNumber] = month.split('-')
-
-    const date = new Date(
-      Number(year),
-      Number(monthNumber) - 2,
-      1
-    )
-
-    const yearValue = date.getFullYear()
-    const monthValue = String(
-      date.getMonth() + 1
-    ).padStart(2, '0')
-
-    return `${yearValue}-${monthValue}`
-  }
-
-  const getFamilyNextMonth = (month) => {
-    const [year, monthNumber] = month.split('-')
-
-    const date = new Date(
-      Number(year),
-      Number(monthNumber),
-      1
-    )
-
-    const yearValue = date.getFullYear()
-    const monthValue = String(
-      date.getMonth() + 1
-    ).padStart(2, '0')
-
-    return `${yearValue}-${monthValue}`
-  }
-
-  const formatFamilyMoney = (amount) => {
-    return `₹${Number(amount || 0).toLocaleString('en-IN')}`
-  }
-
-  // =========================================================
-  // FAMILY SETUP
-  // =========================================================
-
-  const [familyName, setFamilyName] =
-    usePersistentState('spendwise.family.name', '')
-
-  const [familyCreated, setFamilyCreated] =
-    usePersistentState('spendwise.family.created', false)
-
+function FamilyTracker({ onBack }) {
+  const [familyName, setFamilyName] = usePersistentState('spendwise.family.name', '')
+  const [familyCreated, setFamilyCreated] = usePersistentState('spendwise.family.created', false)
   const [members, setMembers] = usePersistentState('spendwise.family.members', [
-    {
-      id: 'member-1',
-      name: 'Mom',
-      role: 'Parent',
-      startingBalance: 0,
-    },
-    {
-      id: 'member-2',
-      name: 'Dad',
-      role: 'Parent',
-      startingBalance: 0,
-    },
-    {
-      id: 'member-3',
-      name: 'Kid',
-      role: 'Child',
-      startingBalance: 0,
-    },
+    { id: 'member-1', name: 'Mom', role: 'Parent', startingBalance: 0 },
+    { id: 'member-2', name: 'Dad', role: 'Parent', startingBalance: 0 },
+    { id: 'member-3', name: 'Kid', role: 'Child', startingBalance: 0 },
   ], Array.isArray)
 
   const [newMemberName, setNewMemberName] = useState('')
   const [newMemberRole, setNewMemberRole] = useState('Child')
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth())
+  const [transactions, setTransactions] = usePersistentState('spendwise.family.transactions', [], Array.isArray)
 
-  // =========================================================
-  // MONTH
-  // =========================================================
-
-  const [selectedMonth, setSelectedMonth] =
-    useState(getCurrentMonthLocal())
-
-  // =========================================================
-  // TRANSACTIONS
-  //
-  // type:
-  // salary
-  // extraIncome
-  // expense
-  // transfer
-  // borrowed
-  // repayment
-  // =========================================================
-
-  const [transactions, setTransactions] = usePersistentState(
-    'spendwise.family.transactions',
-    [],
-    Array.isArray
-  )
-
-  // =========================================================
-  // ADD TRANSACTION FORM
-  // =========================================================
-
-  const [transactionType, setTransactionType] =
-    useState('expense')
-
-  const [selectedMember, setSelectedMember] =
-    useState(() => (members.length > 0 ? members[0].id : ''))
-
+  const [transactionType, setTransactionType] = useState('expense')
+  const [selectedMember, setSelectedMember] = useState(() => (members.length > 0 ? members[0].id : ''))
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState('Food')
   const [note, setNote] = useState('')
-  const [date, setDate] = useState(getTodayLocal())
+  const [date, setDate] = useState(getToday())
+  const [borrowedFrom, setBorrowedFrom] = useState('')
+  const [dueDate, setDueDate] = useState('')
+  const [transferFrom, setTransferFrom] = useState('')
+  const [transferTo, setTransferTo] = useState('')
+  const [editingId, setEditingId] = useState(null)
 
-  const [borrowedFrom, setBorrowedFrom] =
-    useState('')
+  const [showMoneyDue, setShowMoneyDue] = useState(false)
+  const [paymentBorrowedId, setPaymentBorrowedId] = useState(null)
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentDate, setPaymentDate] = useState(getToday())
 
-  const [dueDate, setDueDate] =
-    useState('')
+  /* Notifications & Modals */
+  const [toast, setToast] = useState({ message: '', type: 'success' })
+  const [deleteId, setDeleteId] = useState(null)
 
-  // Transfer fields
+  const showSuccess = (msg) => setToast({ message: msg, type: 'success' })
+  const showError = (msg) => setToast({ message: msg, type: 'error' })
 
-  const [transferFrom, setTransferFrom] =
-    useState('')
+  const availableMonths = getAvailableMonths()
 
-  const [transferTo, setTransferTo] =
-    useState('')
-
-  // Editing
-
-  const [editingId, setEditingId] =
-    useState(null)
-
-  // =========================================================
-  // MONEY DUE / REPAYMENT
-  // =========================================================
-
-  const [showMoneyDue, setShowMoneyDue] =
-    useState(false)
-
-  const [paymentBorrowedId, setPaymentBorrowedId] =
-    useState(null)
-
-  const [paymentAmount, setPaymentAmount] =
-    useState('')
-
-  const [paymentDate, setPaymentDate] =
-    useState(getTodayLocal())
-
-  const [message, setMessage] =
-    useState('')
-
-  // =========================================================
-  // CATEGORIES
-  // =========================================================
-
-  const categories = [
-    'Food',
-    'Transport',
-    'Shopping',
-    'Education',
-    'Bills',
-    'Health',
-    'Entertainment',
-    'Travel',
-    'Household',
-    'Personal',
-    'Other',
-  ]
-
-  // =========================================================
-  // AVAILABLE MONTHS
-  // =========================================================
-
-  const availableMonths = (() => {
-    const months = new Set()
-
-    months.add(getCurrentMonthLocal())
-
-    transactions.forEach((transaction) => {
-      if (transaction.date) {
-        months.add(transaction.date.slice(0, 7))
-      }
-    })
-
-    return Array.from(months).sort(
-      (a, b) => b.localeCompare(a)
-    )
-  })()
-
-  // =========================================================
-  // MEMBER LOOKUP
-  // =========================================================
-
-  const getMemberName = (memberId) => {
-    const member = members.find(
-      (item) => item.id === memberId
-    )
-
+  function getMemberName(id) {
+    const member = members.find((m) => m.id === id)
     return member ? member.name : 'Unknown'
   }
 
-  // =========================================================
-  // RESET FORM
-  // =========================================================
+  function createFamily() {
+    if (!familyName.trim()) {
+      showError('Please enter a valid family name.')
+      return
+    }
+    setFamilyCreated(true)
+    showSuccess(`${familyName.trim()} Tracker created successfully!`)
+  }
 
-  const resetTransactionForm = () => {
+  function addMember() {
+    if (!newMemberName.trim()) {
+      showError('Please enter member name.')
+      return
+    }
+    const newM = { id: `member-${Date.now()}`, name: newMemberName.trim(), role: newMemberRole, startingBalance: 0 }
+    setMembers([...members, newM])
+    setNewMemberName('')
+    showSuccess(`Added ${newM.name} to family members.`)
+  }
+
+  function saveTransaction() {
+    if (date > getToday()) {
+      showError('Future dates are not allowed.')
+      return
+    }
+
+    const numericAmount = Number(amount)
+    if (!numericAmount || numericAmount <= 0) {
+      showError('Please enter a valid amount.')
+      return
+    }
+
+    if (transactionType === 'transfer') {
+      if (!transferFrom || !transferTo || transferFrom === transferTo) {
+        showError('Select valid distinct members for transfer.')
+        return
+      }
+      const transferObj = {
+        id: editingId || `tx-${Date.now()}`,
+        type: 'transfer',
+        fromMemberId: transferFrom,
+        toMemberId: transferTo,
+        amount: numericAmount,
+        date,
+        note: note.trim() || 'Internal transfer',
+      }
+      setTransactions(editingId ? transactions.map(t => t.id === editingId ? transferObj : t) : [...transactions, transferObj])
+      showSuccess('Family transfer saved successfully.')
+      resetForm()
+      return
+    }
+
+    const txObj = {
+      id: editingId || `tx-${Date.now()}`,
+      type: transactionType,
+      memberId: selectedMember,
+      amount: numericAmount,
+      category: transactionType === 'salary' ? 'Salary' : category,
+      note: note.trim(),
+      date,
+      borrowedFrom: transactionType === 'borrowed' ? borrowedFrom.trim() : '',
+      dueDate: transactionType === 'borrowed' ? dueDate : '',
+      borrowedId: null
+    }
+
+    setTransactions(editingId ? transactions.map(t => t.id === editingId ? txObj : t) : [...transactions, txObj])
+    showSuccess(editingId ? 'Transaction updated successfully!' : 'Transaction added successfully!')
+    resetForm()
+  }
+
+  function editTransaction(tx) {
+    setEditingId(tx.id)
+    setTransactionType(tx.type)
+    setAmount(String(tx.amount))
+    setDate(tx.date)
+    setNote(tx.note || '')
+
+    if (tx.type === 'transfer') {
+      setTransferFrom(tx.fromMemberId)
+      setTransferTo(tx.toMemberId)
+    } else {
+      setSelectedMember(tx.memberId)
+      setCategory(tx.category || 'Food')
+      setBorrowedFrom(tx.borrowedFrom || '')
+      setDueDate(tx.dueDate || '')
+    }
+    showSuccess('Editing family entry...')
+  }
+
+  function resetForm() {
     setTransactionType('expense')
-    setSelectedMember(
-      members.length > 0 ? members[0].id : ''
-    )
     setAmount('')
-    setCategory('Food')
     setNote('')
-    setDate(getTodayLocal())
-
     setBorrowedFrom('')
     setDueDate('')
-
-    setTransferFrom('')
-    setTransferTo('')
-
     setEditingId(null)
   }
 
-  // =========================================================
-  // CREATE FAMILY
-  // =========================================================
-
-  const createFamily = () => {
-    if (!familyName.trim()) {
-      setMessage('Please enter a family name.')
-      return
-    }
-
-    setFamilyCreated(true)
-
-    if (members.length > 0) {
-      setSelectedMember(members[0].id)
-    }
-
-    setMessage(
-      `${familyName.trim()} has been created.`
-    )
+  function confirmDelete() {
+    if (!deleteId) return
+    setTransactions(transactions.filter((t) => t.id !== deleteId))
+    setDeleteId(null)
+    showSuccess('Family transaction entry removed.')
   }
 
-  // =========================================================
-  // ADD MEMBER
-  // =========================================================
+  function loadSampleData() {
+    const curr = selectedMonth
+    if (members.length < 2) return
+    const samples = [
+      { id: `tx-${Date.now()}-1`, type: 'salary', memberId: members[0].id, amount: 80000, category: 'Salary', note: 'Primary Income', date: `${curr}-01` },
+      { id: `tx-${Date.now()}-2`, type: 'expense', memberId: members[0].id, amount: 4500, category: 'Food', note: 'Monthly Provisions', date: `${curr}-02` },
+      { id: `tx-${Date.now()}-3`, type: 'expense', memberId: members[1].id, amount: 2200, category: 'Bills', note: 'Electricity Bill', date: `${curr}-04` },
+    ]
+    setTransactions([...transactions, ...samples])
+    showSuccess('Sample family data loaded!')
+  }
 
-  const addMember = () => {
-    const cleanName = newMemberName.trim()
-
-    if (!cleanName) {
-      setMessage('Please enter the member name.')
-      return
-    }
-
-    const newMember = {
-      id: `member-${Date.now()}`,
-      name: cleanName,
-      role: newMemberRole,
-      startingBalance: 0,
-    }
-
-    setMembers((previous) => [
-      ...previous,
-      newMember,
+  function handleExportCSV() {
+    const headers = ['Date', 'Type', 'Member', 'Category', 'Amount (INR)', 'Note']
+    const rows = monthlyTransactions.map(t => [
+      t.date,
+      t.type,
+      getMemberName(t.memberId),
+      t.category || '',
+      t.amount,
+      t.note || ''
     ])
-
-    setNewMemberName('')
-
-    setMessage(
-      `${cleanName} was added to the family.`
-    )
+    exportToCSV(`family_expenses_${selectedMonth}.csv`, headers, rows)
+    showSuccess('Family CSV export downloaded!')
   }
 
-  // =========================================================
-  // REMOVE MEMBER
-  // =========================================================
-
-  const removeMember = (memberId) => {
-    const member = members.find(
-      (item) => item.id === memberId
-    )
-
-    if (!member) return
-
-    const hasTransactions =
-      transactions.some(
-        (transaction) =>
-          transaction.memberId === memberId ||
-          transaction.fromMemberId === memberId ||
-          transaction.toMemberId === memberId
-      )
-
-    if (hasTransactions) {
-      setMessage(
-        'This member has transactions and cannot be removed yet.'
-      )
-
-      return
-    }
-
-    if (members.length <= 1) {
-      setMessage(
-        'A family must have at least one member.'
-      )
-
-      return
-    }
-
-    setMembers((previous) =>
-      previous.filter(
-        (item) => item.id !== memberId
-      )
-    )
-
-    setMessage(
-      `${member.name} was removed.`
-    )
-  }
-
-  // =========================================================
-  // SAVE TRANSACTION
-  // =========================================================
-
-  const saveTransaction = () => {
-    const today = getTodayLocal()
-
-    // -------------------------------------------------------
-    // FUTURE DATE CHECK
-    // -------------------------------------------------------
-
-    if (date > today) {
-      setMessage(
-        'Future dates are not allowed.'
-      )
-
-      return
-    }
-
-    // -------------------------------------------------------
-    // TRANSFER
-    // -------------------------------------------------------
-
-    if (transactionType === 'transfer') {
-      const transferAmount = Number(amount)
-
-      if (
-        !transferFrom ||
-        !transferTo
-      ) {
-        setMessage(
-          'Please select both members.'
-        )
-
-        return
-      }
-
-      if (transferFrom === transferTo) {
-        setMessage(
-          'Money cannot be transferred to the same member.'
-        )
-
-        return
-      }
-
-      if (
-        !transferAmount ||
-        transferAmount <= 0
-      ) {
-        setMessage(
-          'Please enter a valid transfer amount.'
-        )
-
-        return
-      }
-
-      const transfer = {
-        id:
-          editingId ||
-          `transaction-${Date.now()}`,
-
-        type: 'transfer',
-
-        fromMemberId: transferFrom,
-        toMemberId: transferTo,
-
-        amount: transferAmount,
-
-        date,
-        note:
-          note.trim() ||
-          'Internal family transfer',
-      }
-
-      if (editingId) {
-        setTransactions((previous) =>
-          previous.map((item) =>
-            item.id === editingId
-              ? transfer
-              : item
-          )
-        )
-
-        setMessage(
-          'Transfer updated successfully.'
-        )
-      } else {
-        setTransactions((previous) => [
-          ...previous,
-          transfer,
-        ])
-
-        setMessage(
-          'Money transferred successfully.'
-        )
-      }
-
-      resetTransactionForm()
-
-      return
-    }
-
-    // -------------------------------------------------------
-    // NORMAL TRANSACTION
-    // -------------------------------------------------------
-
-    const numericAmount = Number(amount)
-
-    if (!selectedMember) {
-      setMessage(
-        'Please select a family member.'
-      )
-
-      return
-    }
-
-    if (
-      !numericAmount ||
-      numericAmount <= 0
-    ) {
-      setMessage(
-        'Please enter a valid amount.'
-      )
-
-      return
-    }
-
-    // -------------------------------------------------------
-    // BORROWED MONEY
-    // -------------------------------------------------------
-
-    if (
-      transactionType === 'borrowed' &&
-      !borrowedFrom.trim()
-    ) {
-      setMessage(
-        'Please enter who the money was borrowed from.'
-      )
-
-      return
-    }
-
-    if (
-      transactionType === 'borrowed' &&
-      dueDate &&
-      dueDate < date
-    ) {
-      setMessage(
-        'The due date cannot be before the borrowing date.'
-      )
-
-      return
-    }
-
-    // -------------------------------------------------------
-    // SALARY
-    // -------------------------------------------------------
-
-    if (
-      transactionType === 'salary' &&
-      !category
-    ) {
-      setMessage(
-        'Please select a category.'
-      )
-
-      return
-    }
-
-    // -------------------------------------------------------
-    // BUILD TRANSACTION
-    // -------------------------------------------------------
-
-    const transaction = {
-      id:
-        editingId ||
-        `transaction-${Date.now()}`,
-
-      type: transactionType,
-
-      memberId: selectedMember,
-
-      amount: numericAmount,
-
-      category:
-        transactionType === 'salary'
-          ? 'Salary'
-          : category,
-
-      note: note.trim(),
-
-      date,
-
-      borrowedFrom:
-        transactionType === 'borrowed'
-          ? borrowedFrom.trim()
-          : '',
-
-      dueDate:
-        transactionType === 'borrowed'
-          ? dueDate
-          : '',
-
-      borrowedId: null,
-    }
-
-    if (editingId) {
-      setTransactions((previous) =>
-        previous.map((item) =>
-          item.id === editingId
-            ? transaction
-            : item
-        )
-      )
-
-      setMessage(
-        'Transaction updated successfully.'
-      )
-    } else {
-      setTransactions((previous) => [
-        ...previous,
-        transaction,
-      ])
-
-      setMessage(
-        'Transaction added successfully.'
-      )
-    }
-
-    resetTransactionForm()
-  }
-
-  // =========================================================
-  // EDIT TRANSACTION
-  // =========================================================
-
-  const editTransaction = (transaction) => {
-    setEditingId(transaction.id)
-
-    setTransactionType(transaction.type)
-
-    if (transaction.type === 'transfer') {
-      setTransferFrom(
-        transaction.fromMemberId
-      )
-
-      setTransferTo(
-        transaction.toMemberId
-      )
-
-      setAmount(
-        String(transaction.amount)
-      )
-
-      setDate(transaction.date)
-      setNote(transaction.note || '')
-
-      return
-    }
-
-    setSelectedMember(
-      transaction.memberId
-    )
-
-    setAmount(
-      String(transaction.amount)
-    )
-
-    setCategory(
-      transaction.category || 'Other'
-    )
-
-    setNote(
-      transaction.note || ''
-    )
-
-    setDate(
-      transaction.date
-    )
-
-    setBorrowedFrom(
-      transaction.borrowedFrom || ''
-    )
-
-    setDueDate(
-      transaction.dueDate || ''
-    )
-
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    })
-  }
-
-  // =========================================================
-  // DELETE TRANSACTION
-  // =========================================================
-
-  const deleteTransaction = (transactionId) => {
-    const transaction =
-      transactions.find(
-        (item) =>
-          item.id === transactionId
-      )
-
-    if (!transaction) return
-
-    const hasRepayment =
-      transactions.some(
-        (item) =>
-          item.type === 'repayment' &&
-          item.borrowedId === transactionId
-      )
-
-    if (
-      transaction.type === 'borrowed' &&
-      hasRepayment
-    ) {
-      setMessage(
-        'This borrowing has repayments attached to it. Delete the repayments first.'
-      )
-
-      return
-    }
-
-    setTransactions((previous) =>
-      previous.filter(
-        (item) =>
-          item.id !== transactionId
-      )
-    )
-
-    setMessage(
-      'Transaction deleted.'
-    )
-  }
-
-  // =========================================================
-  // BORROWED MONEY CALCULATIONS
-  // =========================================================
-
-  const getPaidAmount = (borrowedId) => {
-    return transactions
-      .filter(
-        (transaction) =>
-          transaction.type === 'repayment' &&
-          transaction.borrowedId === borrowedId
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount || 0),
-        0
-      )
-  }
-
-  const getRemainingBorrowedAmount = (
-    transaction
-  ) => {
-    const paid = getPaidAmount(
-      transaction.id
-    )
-
-    return Math.max(
-      0,
-      Number(transaction.amount || 0) -
-        paid
-    )
-  }
-
-  const moneyDue = transactions.filter(
-    (transaction) =>
-      transaction.type === 'borrowed' &&
-      getRemainingBorrowedAmount(
-        transaction
-      ) > 0
-  )
-
-  // =========================================================
-  // RECORD REPAYMENT
-  // =========================================================
-
-  const recordRepayment = () => {
-    if (!paymentBorrowedId) {
-      setMessage(
-        'Please select a borrowing.'
-      )
-
-      return
-    }
-
-    const borrowedTransaction =
-      transactions.find(
-        (transaction) =>
-          transaction.id ===
-          paymentBorrowedId
-      )
-
-    if (!borrowedTransaction) {
-      setMessage(
-        'Borrowing record not found.'
-      )
-
-      return
-    }
-
-    const numericPayment =
-      Number(paymentAmount)
-
-    if (
-      !numericPayment ||
-      numericPayment <= 0
-    ) {
-      setMessage(
-        'Please enter a valid repayment amount.'
-      )
-
-      return
-    }
-
-    const remaining =
-      getRemainingBorrowedAmount(
-        borrowedTransaction
-      )
-
-    if (numericPayment > remaining) {
-      setMessage(
-        `You only owe ${formatFamilyMoney(
-          remaining
-        )}.`
-      )
-
-      return
-    }
-
-    if (
-      paymentDate > getTodayLocal()
-    ) {
-      setMessage(
-        'Future repayment dates are not allowed.'
-      )
-
-      return
-    }
-
-    if (
-      paymentDate <
-      borrowedTransaction.date
-    ) {
-      setMessage(
-        'Repayment cannot happen before the borrowing date.'
-      )
-
-      return
-    }
-
-    const repayment = {
-      id: `repayment-${Date.now()}`,
-
-      type: 'repayment',
-
-      memberId:
-        borrowedTransaction.memberId,
-
-      borrowedId:
-        borrowedTransaction.id,
-
-      amount: numericPayment,
-
-      date: paymentDate,
-
-      note:
-        `Repayment to ${
-          borrowedTransaction.borrowedFrom
-        }`,
-    }
-
-    setTransactions((previous) => [
-      ...previous,
-      repayment,
-    ])
-
-    setPaymentAmount('')
-    setPaymentBorrowedId(null)
-    setPaymentDate(getTodayLocal())
-
-    setMessage(
-      'Repayment recorded successfully.'
-    )
-  }
-
-  // =========================================================
-  // CURRENT MONTH TRANSACTIONS
-  // =========================================================
-
-  const monthlyTransactions =
-    transactions.filter(
-      (transaction) =>
-        transaction.date &&
-        transaction.date.startsWith(
-          selectedMonth
-        )
-    )
-
-  // =========================================================
-  // FAMILY INCOME
-  //
-  // IMPORTANT:
-  // Transfers are NOT included.
-  // Borrowed money is NOT treated as income.
-  // =========================================================
-
-  const monthlySalary =
-    monthlyTransactions
-      .filter(
-        (transaction) =>
-          transaction.type === 'salary'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount || 0),
-        0
-      )
-
-  const monthlyExtraIncome =
-    monthlyTransactions
-      .filter(
-        (transaction) =>
-          transaction.type ===
-          'extraIncome'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount || 0),
-        0
-      )
-
-  const totalFamilyIncome =
-    monthlySalary +
-    monthlyExtraIncome
-
-  // =========================================================
-  // FAMILY EXPENSE
-  //
-  // Transfers and repayments are NOT family expenses.
-  //
-  // A repayment IS money leaving the member, but the
-  // original borrowed money was not counted as income.
-  // For family accounting, repayment is therefore treated
-  // as an outflow.
-  // =========================================================
-
-  const monthlyExpenses =
-    monthlyTransactions
-      .filter(
-        (transaction) =>
-          transaction.type ===
-          'expense'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount || 0),
-        0
-      )
-
-  const monthlyRepayments =
-    monthlyTransactions
-      .filter(
-        (transaction) =>
-          transaction.type ===
-          'repayment'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount || 0),
-        0
-      )
-
-  const totalFamilyOutflow =
-    monthlyExpenses +
-    monthlyRepayments
-
-  const monthlyFamilyBalance =
-    totalFamilyIncome -
-    totalFamilyOutflow
-
-  // =========================================================
-  // MEMBER BALANCES
-  //
-  // Starting balance
-  // + income
-  // + borrowed money
-  // + transfers received
-  // - expenses
-  // - repayments
-  // - transfers sent
-  // =========================================================
-
-  const getMemberBalance = (
-    memberId
-  ) => {
-    const member = members.find(
-      (item) => item.id === memberId
-    )
-
-    let balance = Number(
-      member?.startingBalance || 0
-    )
-
-    transactions.forEach(
-      (transaction) => {
-        if (
-          transaction.memberId ===
-          memberId
-        ) {
-          if (
-            transaction.type ===
-              'salary' ||
-            transaction.type ===
-              'extraIncome' ||
-            transaction.type ===
-              'borrowed'
-          ) {
-            balance += Number(
-              transaction.amount || 0
-            )
-          }
-
-          if (
-            transaction.type ===
-              'expense' ||
-            transaction.type ===
-              'repayment'
-          ) {
-            balance -= Number(
-              transaction.amount || 0
-            )
-          }
-        }
-
-        if (
-          transaction.type ===
-            'transfer' &&
-          transaction.fromMemberId ===
-            memberId
-        ) {
-          balance -= Number(
-            transaction.amount || 0
-          )
-        }
-
-        if (
-          transaction.type ===
-            'transfer' &&
-          transaction.toMemberId ===
-            memberId
-        ) {
-          balance += Number(
-            transaction.amount || 0
-          )
-        }
-      }
-    )
-
-    return balance
-  }
-
-  // =========================================================
-  // MONTHLY MEMBER BALANCES
-  //
-  // Used for dashboard cards.
-  // =========================================================
-
-  const getMonthlyMemberBalance =
-    (memberId) => {
-      const member = members.find(
-        (item) => item.id === memberId
-      )
-
-      let balance = Number(
-        member?.startingBalance || 0
-      )
-
-      transactions
-        .filter(
-          (transaction) =>
-            transaction.date &&
-            transaction.date <=
-              `${selectedMonth}-31`
-        )
-        .forEach(
-          (transaction) => {
-            if (
-              transaction.memberId ===
-              memberId
-            ) {
-              if (
-                transaction.type ===
-                  'salary' ||
-                transaction.type ===
-                  'extraIncome' ||
-                transaction.type ===
-                  'borrowed'
-              ) {
-                balance += Number(
-                  transaction.amount || 0
-                )
-              }
-
-              if (
-                transaction.type ===
-                  'expense' ||
-                transaction.type ===
-                  'repayment'
-              ) {
-                balance -= Number(
-                  transaction.amount || 0
-                )
-              }
-            }
-
-            if (
-              transaction.type ===
-                'transfer' &&
-              transaction.fromMemberId ===
-                memberId
-            ) {
-              balance -= Number(
-                transaction.amount || 0
-              )
-            }
-
-            if (
-              transaction.type ===
-                'transfer' &&
-              transaction.toMemberId ===
-                memberId
-            ) {
-              balance += Number(
-                transaction.amount || 0
-              )
-            }
-          }
-        )
-
-      return balance
-    }
-
-  // =========================================================
-  // PREVIOUS MONTH INSIGHT
-  // =========================================================
-
-  const previousMonth =
-    getFamilyPreviousMonth(
-      selectedMonth
-    )
-
-  const previousMonthSalary =
-    transactions
-      .filter(
-        (transaction) =>
-          transaction.date &&
-          transaction.date.startsWith(
-            previousMonth
-          ) &&
-          transaction.type ===
-            'salary'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount || 0),
-        0
-      )
-
-  const previousMonthExtraIncome =
-    transactions
-      .filter(
-        (transaction) =>
-          transaction.date &&
-          transaction.date.startsWith(
-            previousMonth
-          ) &&
-          transaction.type ===
-            'extraIncome'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount || 0),
-        0
-      )
-
-  const previousMonthExpenses =
-    transactions
-      .filter(
-        (transaction) =>
-          transaction.date &&
-          transaction.date.startsWith(
-            previousMonth
-          ) &&
-          transaction.type ===
-            'expense'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount || 0),
-        0
-      )
-
-  const previousMonthRepayments =
-    transactions
-      .filter(
-        (transaction) =>
-          transaction.date &&
-          transaction.date.startsWith(
-            previousMonth
-          ) &&
-          transaction.type ===
-            'repayment'
-      )
-      .reduce(
-        (total, transaction) =>
-          total + Number(transaction.amount || 0),
-        0
-      )
-
-  const previousMonthIncome =
-    previousMonthSalary +
-    previousMonthExtraIncome
-
-  const previousMonthOutflow =
-    previousMonthExpenses +
-    previousMonthRepayments
-
-  const previousMonthSavings =
-    previousMonthIncome -
-    previousMonthOutflow
-
-  let familyInsight = ''
-
-  if (
-    previousMonthIncome > 0 &&
-    totalFamilyIncome > 0
-  ) {
-    const currentSavings =
-      monthlyFamilyBalance
-
-    const oldSavings =
-      previousMonthSavings
-
-    if (
-      oldSavings > 0 &&
-      currentSavings > oldSavings
-    ) {
-      const improvement =
-        (
-          (
-            currentSavings -
-            oldSavings
-          ) /
-          oldSavings
-        ) *
-        100
-
-      familyInsight =
-        `Your family saved ${improvement.toFixed(
-          1
-        )}% more this month than last month. Great job! 🎉`
-    } else if (
-      oldSavings > 0 &&
-      currentSavings < oldSavings
-    ) {
-      const decrease =
-        (
-          (
-            oldSavings -
-            currentSavings
-          ) /
-          oldSavings
-        ) *
-        100
-
-      familyInsight =
-        `Family savings are ${decrease.toFixed(
-          1
-        )}% lower than last month. It may be worth checking the expense categories.`
-    } else if (
-      currentSavings ===
-      oldSavings
-    ) {
-      familyInsight =
-        'Your family saved about the same amount as last month.'
-    }
-  }
-
-  // =========================================================
-  // DIARY
-  // =========================================================
-
-  const diaryTransactions =
-    [...monthlyTransactions].sort(
-      (a, b) =>
-        b.date.localeCompare(a.date)
-    )
-
-  const groupedDiary = {}
-
-  diaryTransactions.forEach(
-    (transaction) => {
-      if (
-        !groupedDiary[
-          transaction.date
-        ]
-      ) {
-        groupedDiary[
-          transaction.date
-        ] = []
-      }
-
-      groupedDiary[
-        transaction.date
-      ].push(transaction)
-    }
-  )
-
-  // =========================================================
-  // TRANSACTION DISPLAY
-  // =========================================================
-
-  const getTransactionTitle = (
-    transaction
-  ) => {
-    if (
-      transaction.type ===
-      'salary'
-    ) {
-      return 'Salary'
-    }
-
-    if (
-      transaction.type ===
-      'extraIncome'
-    ) {
-      return 'Extra Income'
-    }
-
-    if (
-      transaction.type ===
-      'expense'
-    ) {
-      return (
-        transaction.category ||
-        'Expense'
-      )
-    }
-
-    if (
-      transaction.type ===
-      'borrowed'
-    ) {
-      return 'Borrowed Money'
-    }
-
-    if (
-      transaction.type ===
-      'repayment'
-    ) {
-      return 'Debt Repayment'
-    }
-
-    if (
-      transaction.type ===
-      'transfer'
-    ) {
-      return 'Family Transfer'
-    }
-
-    return 'Transaction'
-  }
-
-  const getTransactionAmountText =
-    (transaction) => {
-      if (
-        transaction.type ===
-        'expense'
-      ) {
-        return `- ${formatFamilyMoney(
-          transaction.amount
-        )}`
-      }
-
-      if (
-        transaction.type ===
-        'repayment'
-      ) {
-        return `- ${formatFamilyMoney(
-          transaction.amount
-        )}`
-      }
-
-      if (
-        transaction.type ===
-          'salary' ||
-        transaction.type ===
-          'extraIncome'
-      ) {
-        return `+ ${formatFamilyMoney(
-          transaction.amount
-        )}`
-      }
-
-      if (
-        transaction.type ===
-        'borrowed'
-      ) {
-        return `+ ${formatFamilyMoney(
-          transaction.amount
-        )}`
-      }
-
-      if (
-        transaction.type ===
-        'transfer'
-      ) {
-        return `↔ ${formatFamilyMoney(
-          transaction.amount
-        )}`
-      }
-
-      return formatFamilyMoney(
-        transaction.amount
-      )
-    }
-
-  // =========================================================
-  // FORM TYPE CHANGE
-  // =========================================================
-
-  const changeTransactionType = (
-    newType
-  ) => {
-    setTransactionType(newType)
-
-    if (
-      newType === 'transfer'
-    ) {
-      setTransferFrom(
-        members.length > 0
-          ? members[0].id
-          : ''
-      )
-
-      setTransferTo(
-        members.length > 1
-          ? members[1].id
-          : ''
-      )
-    }
-  }
-
-  // =========================================================
-  // RENDER
-  // =========================================================
+  const monthlyTransactions = transactions.filter((t) => t.date && t.date.startsWith(selectedMonth))
+  const monthlySalary = monthlyTransactions.filter((t) => t.type === 'salary').reduce((sum, t) => sum + Number(t.amount || 0), 0)
+  const monthlyExtra = monthlyTransactions.filter((t) => t.type === 'extraIncome').reduce((sum, t) => sum + Number(t.amount || 0), 0)
+  const totalFamilyIncome = monthlySalary + monthlyExtra
+  const monthlyExpenses = monthlyTransactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0)
+  const monthlyRepayments = monthlyTransactions.filter((t) => t.type === 'repayment').reduce((sum, t) => sum + Number(t.amount || 0), 0)
+  const familySavings = totalFamilyIncome - monthlyExpenses - monthlyRepayments
 
   if (!familyCreated) {
     return (
-      <div
-        style={{
-          maxWidth: '800px',
-          margin: '0 auto',
-          padding: '30px',
-        }}
-      >
-        <button
-          onClick={() =>
-            window.history.back()
-          }
-          style={{
-            marginBottom: '20px',
-          }}
-        >
-          ← Back
-        </button>
-
-        <h1>
-          Family Expense Tracker
-        </h1>
-
-        <p>
-          Set up your family before
-          tracking income, expenses and
-          transfers.
-        </p>
-
-        <div
-          style={{
-            border: '1px solid #ddd',
-            borderRadius: '12px',
-            padding: '20px',
-            marginTop: '20px',
-          }}
-        >
-          <h2>
-            Create Your Family
-          </h2>
-
-          <input
-            type="text"
-            placeholder="Family name"
-            value={familyName}
-            onChange={(event) =>
-              setFamilyName(
-                event.target.value
-              )
-            }
-            style={{
-              width: '100%',
-              padding: '10px',
-              marginBottom: '15px',
-            }}
-          />
-
-          <button
-            onClick={createFamily}
-          >
-            Create Family
-          </button>
-
-          {message && (
-            <p>
-              {message}
-            </p>
-          )}
-        </div>
-
-        <div
-          style={{
-            border: '1px solid #ddd',
-            borderRadius: '12px',
-            padding: '20px',
-            marginTop: '20px',
-          }}
-        >
-          <h2>
-            Family Members
-          </h2>
-
-          {members.map(
-            (member) => (
-              <div
-                key={member.id}
-                style={{
-                  display: 'flex',
-                  justifyContent:
-                    'space-between',
-                  alignItems:
-                    'center',
-                  padding:
-                    '10px 0',
-                  borderBottom:
-                    '1px solid #eee',
-                }}
-              >
-                <div>
-                  <strong>
-                    {member.name}
-                  </strong>
-
-                  <div>
-                    {member.role}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() =>
-                    removeMember(
-                      member.id
-                    )
-                  }
-                >
-                  Remove
-                </button>
-              </div>
-            )
-          )}
-
-          <div
-            style={{
-              marginTop: '20px',
-            }}
-          >
-            <input
-              type="text"
-              placeholder="New member name"
-              value={newMemberName}
-              onChange={(event) =>
-                setNewMemberName(
-                  event.target.value
-                )
-              }
-              style={{
-                padding: '10px',
-                marginRight: '10px',
-              }}
-            />
-
-            <select
-              value={newMemberRole}
-              onChange={(event) =>
-                setNewMemberRole(
-                  event.target.value
-                )
-              }
-              style={{
-                padding: '10px',
-                marginRight: '10px',
-              }}
-            >
-              <option value="Parent">
-                Parent
-              </option>
-
-              <option value="Child">
-                Child
-              </option>
-            </select>
-
-            <button
-              onClick={addMember}
-            >
-              Add Member
-            </button>
-          </div>
-        </div>
+      <div className="card" style={{ maxWidth: '600px', margin: '40px auto' }}>
+        <button className="btn-secondary" onClick={onBack}>← Back to Home</button>
+        <h2>👨‍👩‍👧‍‍👦 Create Your Family Tracker</h2>
+        <p style={{ color: '#6b7280' }}>Setup your household group to track shared income and expenses.</p>
+        <label>Family Name</label>
+        <input type="text" placeholder="e.g. The Sharma Family" value={familyName} onChange={(e) => setFamilyName(e.target.value)} />
+        <button onClick={createFamily} style={{ marginTop: '16px' }}>Create Family</button>
       </div>
     )
   }
 
   return (
-    <div
-      style={{
-        maxWidth: '1100px',
-        margin: '0 auto',
-        padding: '30px',
-      }}
-    >
+    <div className="tracker">
+      <ToastAlert message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
+      <ConfirmModal 
+        isOpen={Boolean(deleteId)} 
+        title="Delete Family Transaction" 
+        message="Are you sure you want to remove this family transaction entry?" 
+        onConfirm={confirmDelete} 
+        onCancel={() => setDeleteId(null)} 
+      />
 
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
-
-      <div
-        style={{
-          display: 'flex',
-          justifyContent:
-            'space-between',
-          alignItems: 'center',
-          marginBottom: '20px',
-        }}
-      >
-        <div>
-          <h1>
-            {familyName}
-          </h1>
-
-          <p>
-            Family Expense Tracker
-          </p>
+      <div className="top-bar-nav">
+        {/* FIXED: Proper back button returning to SpendWise home screen */}
+        <button onClick={onBack} className="btn-secondary">← Back to Home</button>
+        <div className="action-buttons-group">
+          <button onClick={loadSampleData} className="btn-secondary">⚡ Load Sample Data</button>
+          <button onClick={handleExportCSV} className="btn-secondary">📥 Export CSV</button>
         </div>
-
-        <button
-          onClick={() =>
-            setShowMoneyDue(
-              !showMoneyDue
-            )
-          }
-        >
-          💰 Money Due
-        </button>
       </div>
 
-      {/* =====================================================
-          MONEY DUE
-      ===================================================== */}
+      <h1>👨‍👩‍👧‍👦 {familyName} Tracker</h1>
+      <hr />
 
-      {showMoneyDue && (
-        <div
-          style={{
-            border:
-              '1px solid #ddd',
-            borderRadius: '12px',
-            padding: '20px',
-            marginBottom: '20px',
-          }}
-        >
-          <h2>
-            Money Due
-          </h2>
-
-          {moneyDue.length === 0 ? (
-            <p>
-              No outstanding borrowed
-              money.
-            </p>
-          ) : (
-            moneyDue.map(
-              (transaction) => {
-                const remaining =
-                  getRemainingBorrowedAmount(
-                    transaction
-                  )
-
-                const isPaying =
-                  paymentBorrowedId ===
-                  transaction.id
-
-                return (
-                  <div
-                    key={
-                      transaction.id
-                    }
-                    style={{
-                      borderBottom:
-                        '1px solid #eee',
-                      padding:
-                        '15px 0',
-                    }}
-                  >
-                    <strong>
-                      {
-                        transaction.borrowedFrom
-                      }
-                    </strong>
-
-                    <p>
-                      Borrowed by:{' '}
-                      {
-                        getMemberName(
-                          transaction.memberId
-                        )
-                      }
-                    </p>
-
-                    <p>
-                      Remaining:{' '}
-                      <strong style={{ color: 'red' }}>
-                        {formatFamilyMoney(
-                          remaining
-                        )}
-                      </strong>
-                    </p>
-
-                    {transaction.dueDate && (
-                      <p>
-                        Due:{' '}
-                        {formatFamilyDate(
-                          transaction.dueDate
-                        )}
-                      </p>
-                    )}
-
-                    {!isPaying ? (
-                      <button
-                        onClick={() =>
-                          setPaymentBorrowedId(
-                            transaction.id
-                          )
-                        }
-                      >
-                        Record Repayment
-                      </button>
-                    ) : (
-                      <div
-                        style={{
-                          marginTop:
-                            '10px',
-                        }}
-                      >
-                        <input
-                          type="number"
-                          placeholder="Repayment amount"
-                          value={
-                            paymentAmount
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            setPaymentAmount(
-                              event
-                                .target
-                                .value
-                            )
-                          }
-                          style={{
-                            padding:
-                              '8px',
-                            marginRight:
-                              '8px',
-                          }}
-                        />
-
-                        <input
-                          type="date"
-                          value={
-                            paymentDate
-                          }
-                          max={
-                            getTodayLocal()
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            setPaymentDate(
-                              event
-                                .target
-                                .value
-                            )
-                          }
-                          style={{
-                            padding:
-                              '8px',
-                            marginRight:
-                              '8px',
-                          }}
-                        />
-
-                        <button
-                          onClick={
-                            recordRepayment
-                          }
-                        >
-                          Save
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setPaymentBorrowedId(
-                              null
-                            )
-                            setPaymentAmount(
-                              ''
-                            )
-                          }}
-                          style={{
-                            marginLeft:
-                              '8px',
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )
-              }
-            )
-          )}
+      {/* Summary Stat Cards */}
+      <section className="card">
+        <h2>{formatMonth(selectedMonth)} Family Dashboard</h2>
+        <div className="stat-grid">
+          <div className="stat-card">
+            <div className="stat-card-title">Family Income</div>
+            <div className="stat-card-value green">₹{formatMoney(totalFamilyIncome)}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-card-title">Family Expenses</div>
+            <div className="stat-card-value red">₹{formatMoney(monthlyExpenses)}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-card-title">Debt Repayments</div>
+            <div className="stat-card-value red">₹{formatMoney(monthlyRepayments)}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-card-title">Net Savings</div>
+            <div className={`stat-card-value ${familySavings >= 0 ? 'green' : 'red'}`}>
+              ₹{formatMoney(familySavings)}
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* =====================================================
-          MESSAGE
-      ===================================================== */}
-
-      {message && (
-        <div
-          style={{
-            padding: '12px',
-            marginBottom: '20px',
-            border:
-              '1px solid #ddd',
-            borderRadius: '8px',
-          }}
-        >
-          {message}
-        </div>
-      )}
-
-      {/* =====================================================
-          MONTH SELECTOR
-      ===================================================== */}
-
-      <div
-        style={{
-          marginBottom: '20px',
-        }}
-      >
-        <label>
-          <strong>
-            Selected Month
-          </strong>
-        </label>
-
-        <br />
-
-        <select
-          value={selectedMonth}
-          onChange={(event) =>
-            setSelectedMonth(
-              event.target.value
-            )
-          }
-          style={{
-            padding: '10px',
-            marginTop: '8px',
-          }}
-        >
-          {availableMonths.map(
-            (month) => (
-              <option
-                key={month}
-                value={month}
-              >
-                {formatFamilyMonth(
-                  month
-                )}
-              </option>
-            )
-          )}
+        <label><strong>Select Month: </strong></label>
+        <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={{ width: 'auto', display: 'inline-block' }}>
+          {availableMonths.map((m) => (
+            <option key={m} value={m}>{formatMonth(m)}</option>
+          ))}
         </select>
-      </div>
+      </section>
 
-      {/* =====================================================
-          FAMILY SUMMARY
-      ===================================================== */}
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '15px',
-          marginBottom: '25px',
-        }}
-      >
-        <div
-          style={{
-            border:
-              '1px solid #ddd',
-            borderRadius: '12px',
-            padding: '18px',
-          }}
-        >
-          <p>
-            Family Income
-          </p>
-
-          <h2 style={{ color: 'green' }}>
-            {formatFamilyMoney(
-              totalFamilyIncome
-            )}
-          </h2>
-        </div>
-
-        <div
-          style={{
-            border:
-              '1px solid #ddd',
-            borderRadius: '12px',
-            padding: '18px',
-          }}
-        >
-          <p>
-            Family Expenses
-          </p>
-
-          <h2 style={{ color: 'red' }}>
-            {formatFamilyMoney(
-              monthlyExpenses
-            )}
-          </h2>
-        </div>
-
-        <div
-          style={{
-            border:
-              '1px solid #ddd',
-            borderRadius: '12px',
-            padding: '18px',
-          }}
-        >
-          <p>
-            Debt Repayments
-          </p>
-
-          <h2 style={{ color: 'red' }}>
-            {formatFamilyMoney(
-              monthlyRepayments
-            )}
-          </h2>
-        </div>
-
-        <div
-          style={{
-            border:
-              '1px solid #ddd',
-            borderRadius: '12px',
-            padding: '18px',
-          }}
-        >
-          <p>
-            Family Savings
-          </p>
-
-          <h2 style={{ color: getBalanceColor(monthlyFamilyBalance) }}>
-            {formatFamilyMoney(
-              monthlyFamilyBalance
-            )}
-          </h2>
-        </div>
-      </div>
-
-      {/* =====================================================
-          INCOME BREAKDOWN
-      ===================================================== */}
-
-      <div
-        style={{
-          border:
-            '1px solid #ddd',
-          borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '25px',
-        }}
-      >
-        <h2>
-          Income This Month
-        </h2>
-
-        <p>
-          Salary:{' '}
-          <strong style={{ color: 'green' }}>
-            {formatFamilyMoney(
-              monthlySalary
-            )}
-          </strong>
-        </p>
-
-        <p>
-          Extra Income:{' '}
-          <strong style={{ color: 'green' }}>
-            {formatFamilyMoney(
-              monthlyExtraIncome
-            )}
-          </strong>
-        </p>
-
-        <p>
-          Total:{' '}
-          <strong style={{ color: 'green' }}>
-            {formatFamilyMoney(
-              totalFamilyIncome
-            )}
-          </strong>
-        </p>
-      </div>
-
-      {/* =====================================================
-          MEMBER BALANCES
-      ===================================================== */}
-
-      <div
-        style={{
-          marginBottom: '25px',
-        }}
-      >
-        <h2>
-          Family Members
-        </h2>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '15px',
-          }}
-        >
-          {members.map(
-            (member) => (
-              <div
-                key={member.id}
-                style={{
-                  border:
-                    '1px solid #ddd',
-                  borderRadius:
-                    '12px',
-                  padding:
-                    '18px',
-                }}
-              >
-                <h3>
-                  {member.name}
-                </h3>
-
-                <p>
-                  {member.role}
-                </p>
-
-                <p>
-                  Balance:
-                </p>
-
-                <h2 style={{ color: getBalanceColor(getMonthlyMemberBalance(member.id)) }}>
-                  {formatFamilyMoney(
-                    getMonthlyMemberBalance(
-                      member.id
-                    )
-                  )}
-                </h2>
-              </div>
-            )
-          )}
-        </div>
-      </div>
-
-      <div className="category-card">
+      {/* Category Chart Breakdown for Family */}
+      <section className="card">
         <CategoryBreakdown transactions={monthlyTransactions} />
-      </div>
+      </section>
 
-      {/* =====================================================
-          FAMILY INSIGHT
-      ===================================================== */}
-
-      {familyInsight && (
-        <div
-          style={{
-            border:
-              '1px solid #ddd',
-            borderRadius: '12px',
-            padding: '18px',
-            marginBottom: '25px',
-          }}
-        >
-          <h2>
-            Monthly Insight
-          </h2>
-
-          <p>
-            {familyInsight}
-          </p>
-        </div>
-      )}
-
-      {/* =====================================================
-          ADD TRANSACTION
-      ===================================================== */}
-
-      <div
-        style={{
-          border:
-            '1px solid #ddd',
-          borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '25px',
-        }}
-      >
-        <h2>
-          {editingId
-            ? 'Edit Transaction'
-            : 'Add Family Transaction'}
-        </h2>
-
-        <label>
-          Transaction Type
-        </label>
-
-        <br />
-
-        <select
-          value={transactionType}
-          onChange={(event) =>
-            changeTransactionType(
-              event.target.value
-            )
-          }
-          style={{
-            padding: '10px',
-            marginTop: '8px',
-            marginBottom:
-              '15px',
-            width: '100%',
-          }}
-        >
-          <option value="expense">
-            Expense
-          </option>
-
-          <option value="salary">
-            Salary / Monthly Income
-          </option>
-
-          <option value="extraIncome">
-            Extra Income
-          </option>
-
-          <option value="transfer">
-            Family Transfer
-          </option>
-
-          <option value="borrowed">
-            Borrowed Money
-          </option>
+      {/* Add / Edit Transaction Form */}
+      <section className="card">
+        <h2>{editingId ? '✏️ Edit Family Entry' : '➕ Add Family Transaction'}</h2>
+        
+        <label>Transaction Type</label>
+        <select value={transactionType} onChange={(e) => setTransactionType(e.target.value)}>
+          <option value="expense">Expense</option>
+          <option value="salary">Salary / Income</option>
+          <option value="transfer">Internal Transfer</option>
+          <option value="borrowed">Borrowed Money</option>
+          <option value="repayment">Repayment</option>
         </select>
 
-        {/* ---------------------------------------------------
-            TRANSFER FORM
-        --------------------------------------------------- */}
-
-        {transactionType ===
-        'transfer' ? (
-          <>
-            <label>
-              From Member
-            </label>
-
-            <select
-              value={
-                transferFrom
-              }
-              onChange={(
-                event
-              ) =>
-                setTransferFrom(
-                  event.target.value
-                )
-              }
-              style={{
-                padding:
-                  '10px',
-                marginTop:
-                  '8px',
-                marginBottom:
-                  '15px',
-                width:
-                  '100%',
-              }}
-            >
-              {members.map(
-                (member) => (
-                  <option
-                    key={
-                      member.id
-                    }
-                    value={
-                      member.id
-                    }
-                  >
-                    {
-                      member.name
-                    }
-                  </option>
-                )
-              )}
-            </select>
-
-            <label>
-              To Member
-            </label>
-
-            <select
-              value={
-                transferTo
-              }
-              onChange={(
-                event
-              ) =>
-                setTransferTo(
-                  event.target.value
-                )
-              }
-              style={{
-                padding:
-                  '10px',
-                marginTop:
-                  '8px',
-                marginBottom:
-                  '15px',
-                width:
-                  '100%',
-              }}
-            >
-              {members.map(
-                (member) => (
-                  <option
-                    key={
-                      member.id
-                    }
-                    value={
-                      member.id
-                    }
-                  >
-                    {
-                      member.name
-                    }
-                  </option>
-                )
-              )}
-            </select>
-          </>
+        {transactionType === 'transfer' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div>
+              <label>From Member</label>
+              <select value={transferFrom} onChange={(e) => setTransferFrom(e.target.value)}>
+                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label>To Member</label>
+              <select value={transferTo} onChange={(e) => setTransferTo(e.target.value)}>
+                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+          </div>
         ) : (
           <>
-            <label>
-              Member
-            </label>
-
-            <select
-              value={
-                selectedMember
-              }
-              onChange={(
-                event
-              ) =>
-                setSelectedMember(
-                  event.target.value
-                )
-              }
-              style={{
-                padding:
-                  '10px',
-                marginTop:
-                  '8px',
-                marginBottom:
-                  '15px',
-                width:
-                  '100%',
-              }}
-            >
-              {members.map(
-                (member) => (
-                  <option
-                    key={
-                      member.id
-                    }
-                    value={
-                      member.id
-                    }
-                  >
-                    {
-                      member.name
-                    }{' '}
-                    —{' '}
-                    {
-                      member.role
-                    }
-                  </option>
-                )
-              )}
+            <label>Family Member</label>
+            <select value={selectedMember} onChange={(e) => setSelectedMember(e.target.value)}>
+              {members.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.role})</option>)}
             </select>
           </>
         )}
 
-        <label>
-          Amount
-        </label>
+        <label>Amount (₹)</label>
+        <input type="number" placeholder="Enter amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
 
-        <br />
-
-        <input
-          type="number"
-          min="0"
-          placeholder="Enter amount"
-          value={amount}
-          onChange={(event) =>
-            setAmount(
-              event.target.value
-            )
-          }
-          style={{
-            padding: '10px',
-            marginTop: '8px',
-            marginBottom:
-              '15px',
-            width: '100%',
-          }}
-        />
-
-        <label>
-          Date
-        </label>
-
-        <br />
-
-        <input
-          type="date"
-          value={date}
-          max={getTodayLocal()}
-          onChange={(event) =>
-            setDate(
-              event.target.value
-            )
-          }
-          style={{
-            padding: '10px',
-            marginTop: '8px',
-            marginBottom:
-              '15px',
-            width: '100%',
-          }}
-        />
-
-        {/* ---------------------------------------------------
-            EXPENSE / EXTRA INCOME CATEGORY
-        --------------------------------------------------- */}
-
-        {transactionType ===
-          'expense' && (
+        {transactionType === 'expense' && (
           <>
-            <label>
-              Category
-            </label>
-
-            <br />
-
-            <select
-              value={category}
-              onChange={(
-                event
-              ) =>
-                setCategory(
-                  event.target.value
-                )
-              }
-              style={{
-                padding:
-                  '10px',
-                marginTop:
-                  '8px',
-                marginBottom:
-                  '15px',
-                width:
-                  '100%',
-              }}
-            >
-              {categories.map(
-                (item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
-                    {item}
-                  </option>
-                )
-              )}
+            <label>Category</label>
+            <select value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="Food">Food</option>
+              <option value="Transport">Transport</option>
+              <option value="Shopping">Shopping</option>
+              <option value="Education">Education</option>
+              <option value="Bills">Bills</option>
+              <option value="Health">Health</option>
+              <option value="Other">Other</option>
             </select>
           </>
         )}
 
-        {/* ---------------------------------------------------
-            BORROWED MONEY
-        --------------------------------------------------- */}
+        <label>Note</label>
+        <input type="text" placeholder="Description / Notes" value={note} onChange={(e) => setNote(e.target.value)} />
 
-        {transactionType ===
-          'borrowed' && (
-          <>
-            <label>
-              Borrowed From
-            </label>
+        <label>Date</label>
+        <input type="date" max={getToday()} value={date} onChange={(e) => setDate(e.target.value)} />
 
-            <br />
+        <div style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
+          <button onClick={saveTransaction}>{editingId ? 'Save Changes' : 'Add Entry'}</button>
+          {editingId && <button className="btn-secondary" onClick={resetForm}>Cancel</button>}
+        </div>
+      </section>
 
-            <input
-              type="text"
-              placeholder="e.g. Rahul"
-              value={
-                borrowedFrom
-              }
-              onChange={(
-                event
-              ) =>
-                setBorrowedFrom(
-                  event.target
-                    .value
-                )
-              }
-              style={{
-                padding:
-                  '10px',
-                marginTop:
-                  '8px',
-                marginBottom:
-                  '15px',
-                width:
-                  '100%',
-              }}
-            />
-
-            <label>
-              Due Date
-            </label>
-
-            <br />
-
-            <input
-              type="date"
-              value={
-                dueDate
-              }
-              min={date}
-              max="9999-12-31"
-              onChange={(
-                event
-              ) =>
-                setDueDate(
-                  event.target
-                    .value
-                )
-              }
-              style={{
-                padding:
-                  '10px',
-                marginTop:
-                  '8px',
-                marginBottom:
-                  '15px',
-                width:
-                  '100%',
-              }}
-            />
-          </>
-        )}
-
-        {/* ---------------------------------------------------
-            NOTE
-        --------------------------------------------------- */}
-
-        <label>
-          Note
-        </label>
-
-        <br />
-
-        <textarea
-          placeholder="Optional note"
-          value={note}
-          onChange={(event) =>
-            setNote(
-              event.target.value
-            )
-          }
-          style={{
-            padding: '10px',
-            marginTop: '8px',
-            marginBottom:
-              '15px',
-            width: '100%',
-            minHeight:
-              '80px',
-          }}
-        />
-
-        <button
-          onClick={
-            saveTransaction
-          }
-        >
-          {editingId
-            ? 'Update Transaction'
-            : 'Add Transaction'}
-        </button>
-
-        {editingId && (
-          <button
-            onClick={() => {
-              resetTransactionForm()
-              setMessage('')
-            }}
-            style={{
-              marginLeft:
-                '10px',
-            }}
-          >
-            Cancel Edit
-          </button>
-        )}
-      </div>
-
-      {/* =====================================================
-          FAMILY DIARY
-      ===================================================== */}
-
-      <div
-        style={{
-          marginBottom: '30px',
-        }}
-      >
-        <h2>
-          {formatFamilyMonth(
-            selectedMonth
-          )}{' '}
-          — Family Diary
-        </h2>
-
-        {Object.keys(
-          groupedDiary
-        ).length === 0 ? (
-          <p>
-            No transactions recorded
-            for this month.
-          </p>
+      {/* Family Diary */}
+      <section className="card">
+        <h2>📖 Family Log</h2>
+        {monthlyTransactions.length === 0 ? (
+          <p style={{ color: '#6b7280' }}>No family entries recorded for this month.</p>
         ) : (
-          Object.entries(
-            groupedDiary
-          ).map(
-            ([
-              diaryDate,
-              diaryItems,
-            ]) => (
-              <div
-                key={diaryDate}
-                style={{
-                  border:
-                    '1px solid #ddd',
-                  borderRadius:
-                    '12px',
-                  padding:
-                    '18px',
-                  marginBottom:
-                    '15px',
-                }}
-              >
-                <h3>
-                  {formatFamilyDate(
-                    diaryDate
-                  )}
-                </h3>
-
-                {diaryItems.map(
-                  (transaction) => (
-                    <div
-                      key={
-                        transaction.id
-                      }
-                      style={{
-                        display:
-                          'flex',
-                        justifyContent:
-                          'space-between',
-                        alignItems:
-                          'center',
-                        padding:
-                          '12px 0',
-                        borderTop:
-                          '1px solid #eee',
-                      }}
-                    >
-                      <div>
-                        <strong>
-                          {getTransactionTitle(
-                            transaction
-                          )}
-                        </strong>
-
-                        {transaction.type ===
-                          'transfer' && (
-                          <p>
-                            {
-                              getMemberName(
-                                transaction.fromMemberId
-                              )
-                            }{' '}
-                            →{' '}
-                            {
-                              getMemberName(
-                                transaction.toMemberId
-                              )
-                            }
-                          </p>
-                        )}
-
-                        {transaction.type !==
-                          'transfer' && (
-                          <p>
-                            {
-                              getMemberName(
-                                transaction.memberId
-                              )
-                            }
-                          </p>
-                        )}
-
-                        {transaction.note && (
-                          <small>
-                            {
-                              transaction.note
-                            }
-                          </small>
-                        )}
-
-                        {transaction.type ===
-                          'borrowed' && (
-                          <p>
-                            Borrowed from{' '}
-                            {
-                              transaction.borrowedFrom
-                            }
-                          </p>
-                        )}
-                      </div>
-
-                      <div
-                        style={{
-                          textAlign:
-                            'right',
-                        }}
-                      >
-                        <strong style={{ color: getTypeColor(transaction.type) }}>
-                          {
-                            getTransactionAmountText(
-                              transaction
-                            )
-                          }
-                        </strong>
-
-                        <br />
-
-                        {transaction.type ===
-                          'borrowed' && (
-                          <small style={{ color: 'red' }}>
-                            Remaining:{' '}
-                            {formatFamilyMoney(
-                              getRemainingBorrowedAmount(
-                                transaction
-                              )
-                            )}
-                          </small>
-                        )}
-
-                        <div
-                          style={{
-                            marginTop:
-                              '8px',
-                          }}
-                        >
-                          <button
-                            onClick={() =>
-                              editTransaction(
-                                transaction
-                              )
-                            }
-                          >
-                            Edit
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              deleteTransaction(
-                                transaction.id
-                              )
-                            }
-                            style={{
-                              marginLeft:
-                                '6px',
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                )}
+          monthlyTransactions.map((t) => (
+            <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #e5e7eb', alignItems: 'center' }}>
+              <div>
+                <strong>{t.type === 'transfer' ? `Transfer (${getMemberName(t.fromMemberId)} → ${getMemberName(t.toMemberId)})` : `${t.category} (${getMemberName(t.memberId)})`}</strong>
+                <span style={{ color: '#6b7280', fontSize: '0.85rem', marginLeft: '8px' }}>{formatDate(t.date)}</span>
+                {t.note && <div style={{ fontSize: '0.85rem', color: '#4b5563' }}>{t.note}</div>}
               </div>
-            )
-          )
+              <div>
+                <strong style={{ color: t.type === 'expense' || t.type === 'repayment' ? '#dc2626' : '#16a34a', marginRight: '12px' }}>
+                  ₹{formatMoney(t.amount)}
+                </strong>
+                <button className="btn-secondary" onClick={() => editTransaction(t)} style={{ padding: '4px 8px', marginRight: '4px' }}>✏️ Edit</button>
+                <button className="btn-danger" onClick={() => setDeleteId(t.id)} style={{ padding: '4px 8px' }}>Delete</button>
+              </div>
+            </div>
+          ))
         )}
-      </div>
+      </section>
 
-      {/* =====================================================
-          MONTH NAVIGATION
-      ===================================================== */}
-
-      <div
-        style={{
-          display: 'flex',
-          justifyContent:
-            'space-between',
-          alignItems: 'center',
-          marginTop: '30px',
-          padding: '15px 0',
-          borderTop:
-            '1px solid #ddd',
-        }}
-      >
-        <button
-          onClick={() => {
-            const previous =
-              getFamilyPreviousMonth(
-                selectedMonth
-              )
-
-            setSelectedMonth(
-              previous
-            )
-          }}
-        >
-          ← Previous Month
-        </button>
-
-        <strong>
-          {formatFamilyMonth(
-            selectedMonth
-          )}
-        </strong>
-
-        <button
-          onClick={() => {
-            const next =
-              getFamilyNextMonth(
-                selectedMonth
-              )
-
-            if (
-              next <=
-              getCurrentMonthLocal()
-            ) {
-              setSelectedMonth(
-                next
-              )
-            }
-          }}
-          disabled={
-            selectedMonth ===
-            getCurrentMonthLocal()
-          }
-        >
-          Next Month →
-        </button>
-      </div>
+      {/* Member Management Section */}
+      <section className="card">
+        <h2>👥 Manage Family Members</h2>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+          <input type="text" placeholder="Member Name" value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} />
+          <select value={newMemberRole} onChange={(e) => setNewMemberRole(e.target.value)} style={{ width: '150px' }}>
+            <option value="Parent">Parent</option>
+            <option value="Child">Child</option>
+          </select>
+          <button onClick={addMember} style={{ whiteSpace: 'nowrap' }}>Add Member</button>
+        </div>
+      </section>
     </div>
   )
 }
 
 
 /* =========================================================
-   MAIN APP
+   MAIN APP (HOME SCREEN & ROUTING)
    ========================================================= */
 
-function App() {
+export default function App() {
+  const [activeTab, setActiveTab] = useState('home')
 
-  const [mode, setMode] =
-    useState(null)
-
-
-  if (mode === 'family') {
-
-    return (
-
-      <FamilyTracker
-        onBack={() =>
-          setMode(null)
-        }
-      />
-
-    )
+  if (activeTab === 'individual') {
+    return <IndividualTracker onBack={() => setActiveTab('home')} />
   }
 
-
-  if (mode === 'individual') {
-
-    return (
-
-      <IndividualTracker
-        onBack={() =>
-          setMode(null)
-        }
-      />
-
-    )
+  if (activeTab === 'family') {
+    return <FamilyTracker onBack={() => setActiveTab('home')} />
   }
-
 
   return (
+    <div className="home-container">
+      <header className="home-header">
+        <h1>Welcome to SpendWise</h1>
+        <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
+          Smart, simple financial management for individuals and families.
+        </p>
+      </header>
 
-    <div className="home">
+      {/* Improved Two-Card Home Screen */}
+      <div className="home-cards">
+        <div className="home-card">
+          <div>
+            <div className="home-card-icon">👤</div>
+            <h2>Individual Tracker</h2>
+            <p>Track your personal salary, daily expenses, savings, and debts seamlessly.</p>
+          </div>
+          <button onClick={() => setActiveTab('individual')}>Open Individual Tracker</button>
+        </div>
 
-      <h1>
-        SpendWise
-      </h1>
-
-
-      <p>
-        How do you want to track your expenses?
-      </p>
-
-
-      <button
-        onClick={() =>
-          setMode('family')
-        }
-      >
-        Family Expense Tracker
-      </button>
-
-
-      <button
-        onClick={() =>
-          setMode('individual')
-        }
-      >
-        Individual Expense Tracker
-      </button>
-
+        <div className="home-card">
+          <div>
+            <div className="home-card-icon">👨‍👩‍👧‍👦</div>
+            <h2>Family Tracker</h2>
+            <p>Manage group family budgets, shared household expenses, and member transfers.</p>
+          </div>
+          <button onClick={() => setActiveTab('family')}>Open Family Tracker</button>
+        </div>
+      </div>
     </div>
-
   )
 }
-
-
-export default App

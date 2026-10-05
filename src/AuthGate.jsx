@@ -8,14 +8,6 @@ import {
   getStatus,
 } from './storage.js'
 
-/* =========================================================
-   AUTH GATE
-
-   - No Supabase keys  -> shows the app straight away (browser-only mode).
-   - Supabase keys set -> shows login / signup first. After login the user's
-     saved data is loaded, then the app is shown.
-   ========================================================= */
-
 function SyncBadge() {
   const status = useSyncExternalStore(subscribeStatus, getStatus)
 
@@ -37,7 +29,6 @@ function SyncBadge() {
   )
 }
 
-
 function AuthForm() {
   const [mode, setMode] = useState('login')
   const [email, setEmail] = useState('')
@@ -50,7 +41,6 @@ function AuthForm() {
 
   async function submit(event) {
     event.preventDefault()
-
     setError('')
     setInfo('')
 
@@ -75,11 +65,8 @@ function AuthForm() {
           password,
         })
 
-        if (signUpError) {
-          throw signUpError
-        }
+        if (signUpError) throw signUpError
 
-        /* With email confirmation switched on there is no session yet. */
         if (!data.session) {
           setInfo(
             'Account created. Please check your email to confirm it, then log in.'
@@ -93,9 +80,7 @@ function AuthForm() {
             password,
           })
 
-        if (signInError) {
-          throw signInError
-        }
+        if (signInError) throw signInError
       }
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.')
@@ -166,9 +151,7 @@ function AuthForm() {
   )
 }
 
-
 function CloudGate({ children }) {
-  /* undefined = still checking, null = signed out, object = signed in */
   const [session, setSession] = useState(undefined)
   const [dataUserId, setDataUserId] = useState(null)
   const [loadError, setLoadError] = useState('')
@@ -269,12 +252,10 @@ function CloudGate({ children }) {
         </button>
       </div>
 
-      {/* key = user id, so a different user always starts with a fresh app */}
       <div key={userId}>{children}</div>
     </>
   )
 }
-
 
 export default function AuthGate({ children }) {
   if (!cloudEnabled) {
