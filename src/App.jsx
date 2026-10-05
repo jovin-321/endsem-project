@@ -48,7 +48,7 @@ function formatMoney(amount) {
   return Number(amount || 0).toLocaleString('en-IN')
 }
 
-/* Toast Message Component */
+/* Toast Alert Component */
 function ToastAlert({ message, type, onClose }) {
   useEffect(() => {
     if (message) {
@@ -159,7 +159,7 @@ function exportToCSV(filename, headers, rows) {
    INDIVIDUAL TRACKER
    ========================================================= */
 
-function IndividualTracker({ onBack }) {
+function IndividualTracker({ onBack, userEmail, onLogout }) {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth())
   const [transactions, setTransactions] = usePersistentState(
     'spendwise.individual.transactions',
@@ -417,6 +417,18 @@ function IndividualTracker({ onBack }) {
         onCancel={() => setDeleteId(null)} 
       />
 
+      {/* Sync / Status Banner with Space and Logout Button */}
+      {userEmail && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', background: '#f3f4f6', padding: '8px 16px', borderRadius: '8px' }}>
+          <span style={{ fontSize: '0.9rem', color: '#374151' }}>
+            ✓ Saved to cloud {userEmail}
+          </span>
+          <button className="btn-secondary" onClick={onLogout} style={{ padding: '4px 12px', fontSize: '0.85rem' }}>
+            Log out
+          </button>
+        </div>
+      )}
+
       <div className="top-bar-nav">
         <button onClick={onBack} className="btn-secondary">← Back to Home</button>
         <div className="action-buttons-group">
@@ -628,18 +640,16 @@ function IndividualTracker({ onBack }) {
    FAMILY TRACKER
    ========================================================= */
 
-/* The categories an EXPENSE is allowed to have. */
 const EXPENSE_CATEGORIES = [
   'Food', 'Transport', 'Shopping', 'Entertainment',
   'Education', 'Bills', 'Health', 'Other',
 ]
 
-/* An expense carrying a leftover income label such as "Salary" or "Bonus". */
 function isMislabelledExpense(t) {
   return t.type === 'expense' && !EXPENSE_CATEGORIES.includes(t.category)
 }
 
-function FamilyTracker({ onBack }) {
+function FamilyTracker({ onBack, userEmail, onLogout }) {
   const [familyName, setFamilyName] = usePersistentState('spendwise.family.name', '')
   const [familyCreated, setFamilyCreated] = usePersistentState('spendwise.family.created', false)
   const [members, setMembers] = usePersistentState('spendwise.family.members', [
@@ -647,6 +657,9 @@ function FamilyTracker({ onBack }) {
     { id: 'member-2', name: 'Dad', role: 'Parent' },
     { id: 'member-3', name: 'Kid', role: 'Child' },
   ], Array.isArray)
+
+  const [isEditingFamilyName, setIsEditingFamilyName] = useState(false)
+  const [tempFamilyName, setTempFamilyName] = useState(familyName)
 
   const [newMemberName, setNewMemberName] = useState('')
   const [newMemberRole, setNewMemberRole] = useState('Child')
@@ -672,7 +685,6 @@ function FamilyTracker({ onBack }) {
 
   const availableMonths = getAvailableMonths()
 
-  // Initialize dropdown member selections
   useEffect(() => {
     if (members.length > 0) {
       if (!selectedMember) setSelectedMember(members[0].id)
@@ -681,12 +693,6 @@ function FamilyTracker({ onBack }) {
     }
   }, [members, selectedMember, transferFrom, transferTo])
 
-  /*
-    Repair expenses that were saved with a leftover "Salary"/"Bonus" label.
-    While the bug was active the dropdown on screen showed "Food", so Food is
-    what the person actually saw and chose. Real salary / bonus entries are
-    not touched.
-  */
   useEffect(() => {
     if (transactions.some(isMislabelledExpense)) {
       setTransactions(
@@ -707,6 +713,16 @@ function FamilyTracker({ onBack }) {
     }
     setFamilyCreated(true)
     showSuccess(`${familyName.trim()} Tracker created successfully!`)
+  }
+
+  function saveFamilyName() {
+    if (!tempFamilyName.trim()) {
+      showError('Family name cannot be empty.')
+      return
+    }
+    setFamilyName(tempFamilyName.trim())
+    setIsEditingFamilyName(false)
+    showSuccess('Family name updated successfully!')
   }
 
   function addMember() {
@@ -853,10 +869,8 @@ function FamilyTracker({ onBack }) {
     showSuccess('Family CSV export downloaded!')
   }
 
-  /* Calculations for Dashboard */
   const monthlyTransactions = transactions.filter((t) => t.date && t.date.startsWith(selectedMonth))
 
-  /* Family Log: apply the type filter, newest first */
   const filteredLog = monthlyTransactions
     .filter((t) => filterType === 'all' || t.type === filterType)
     .sort((a, b) => b.date.localeCompare(a.date))
@@ -870,7 +884,6 @@ function FamilyTracker({ onBack }) {
   
   const familySavings = totalFamilyIncome - monthlyExpenses
 
-  /* Calculate Dynamic Member Balances for selected month */
   function getMemberBalance(memberId) {
     let balance = 0
     monthlyTransactions.forEach((t) => {
@@ -910,6 +923,18 @@ function FamilyTracker({ onBack }) {
         onCancel={() => setDeleteId(null)} 
       />
 
+      {/* Sync / Status Banner with Space and Logout Button */}
+      {userEmail && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', background: '#f3f4f6', padding: '8px 16px', borderRadius: '8px' }}>
+          <span style={{ fontSize: '0.9rem', color: '#374151' }}>
+            ✓ Saved to cloud {userEmail}
+          </span>
+          <button className="btn-secondary" onClick={onLogout} style={{ padding: '4px 12px', fontSize: '0.85rem' }}>
+            Log out
+          </button>
+        </div>
+      )}
+
       <div className="top-bar-nav">
         <button onClick={onBack} className="btn-secondary">← Back to Home</button>
         <div className="action-buttons-group">
@@ -918,7 +943,32 @@ function FamilyTracker({ onBack }) {
         </div>
       </div>
 
-      <h1>👨‍👩‍👧‍👦 {familyName} Tracker</h1>
+      {/* Editable Family Name Title */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+        {isEditingFamilyName ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input 
+              type="text" 
+              value={tempFamilyName} 
+              onChange={(e) => setTempFamilyName(e.target.value)}
+              style={{ fontSize: '1.2rem', padding: '4px 8px', margin: 0 }}
+            />
+            <button onClick={saveFamilyName} style={{ padding: '6px 12px' }}>Save</button>
+            <button className="btn-secondary" onClick={() => { setIsEditingFamilyName(false); setTempFamilyName(familyName); }} style={{ padding: '6px 12px' }}>Cancel</button>
+          </div>
+        ) : (
+          <>
+            <h1 style={{ margin: 0 }}>👨‍👩‍👧‍‍👦 {familyName} Tracker</h1>
+            <button 
+              className="btn-secondary" 
+              onClick={() => { setTempFamilyName(familyName); setIsEditingFamilyName(true); }}
+              style={{ padding: '4px 8px', fontSize: '0.85rem' }}
+            >
+              ✏️ Edit Name
+            </button>
+          </>
+        )}
+      </div>
       <hr />
 
       {/* Summary Stat Cards */}
@@ -1116,22 +1166,166 @@ function FamilyTracker({ onBack }) {
 
 
 /* =========================================================
+   AUTH MODAL / LOGIN & SIGNUP
+   ========================================================= */
+
+function AuthModal({ onLogin }) {
+  const [isSignUp, setIsSignUp] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    setErrorMsg('')
+
+    if (!email.trim() || !password) {
+      setErrorMsg('Please enter email and password.')
+      return
+    }
+
+    if (isSignUp) {
+      if (password !== confirmPassword) {
+        setErrorMsg('Passwords do not match.')
+        return
+      }
+      if (password.length < 6) {
+        setErrorMsg('Password must be at least 6 characters.')
+        return
+      }
+    }
+
+    onLogin(email.trim())
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-content" style={{ maxWidth: '400px', width: '100%' }}>
+        <h2>{isSignUp ? 'Create Account' : 'Welcome Back'}</h2>
+        <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '16px' }}>
+          {isSignUp ? 'Sign up to sync your data to the cloud.' : 'Log in to access your saved cloud data.'}
+        </p>
+
+        {errorMsg && (
+          <div style={{ color: '#dc2626', background: '#fee2e2', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '12px' }}>
+            {errorMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <label>Email Address</label>
+          <input 
+            type="email" 
+            placeholder="you@example.com" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            required 
+          />
+
+          <label>Password</label>
+          <div style={{ position: 'relative' }}>
+            <input 
+              type={showPassword ? 'text' : 'password'} 
+              placeholder="Enter password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              required 
+              style={{ width: '100%', paddingRight: '40px' }}
+            />
+            <button 
+              type="button" 
+              onClick={() => setShowPassword(!showPassword)}
+              style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
+            >
+              {showPassword ? '🙈' : '👁️'}
+            </button>
+          </div>
+
+          {isSignUp && (
+            <>
+              <label style={{ marginTop: '12px', display: 'block' }}>Confirm Password</label>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type={showConfirmPassword ? 'text' : 'password'} 
+                  placeholder="Confirm password" 
+                  value={confirmPassword} 
+                  onChange={(e) => setConfirmPassword(e.target.value)} 
+                  required 
+                  style={{ width: '100%', paddingRight: '40px' }}
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
+                >
+                  {showConfirmPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </>
+          )}
+
+          <button type="submit" style={{ width: '100%', marginTop: '20px' }}>
+            {isSignUp ? 'Sign Up' : 'Log In'}
+          </button>
+        </form>
+
+        <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '0.9rem' }}>
+          {isSignUp ? (
+            <span>Already have an account? <button style={{ background: 'none', border: 'none', color: '#4f46e5', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setIsSignUp(false)}>Log In</button></span>
+          ) : (
+            <span>Don't have an account? <button style={{ background: 'none', border: 'none', color: '#4f46e5', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setIsSignUp(true)}>Sign Up</button></span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+/* =========================================================
    MAIN APP (HOME SCREEN & ROUTING)
    ========================================================= */
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home')
+  const [userEmail, setUserEmail] = usePersistentState('spendwise.userEmail', '')
+  const [showAuth, setShowAuth] = useState(false)
+
+  function handleLogin(email) {
+    setUserEmail(email)
+    setShowAuth(false)
+  }
+
+  function handleLogout() {
+    setUserEmail('')
+  }
 
   if (activeTab === 'individual') {
-    return <IndividualTracker onBack={() => setActiveTab('home')} />
+    return <IndividualTracker onBack={() => setActiveTab('home')} userEmail={userEmail} onLogout={handleLogout} />
   }
 
   if (activeTab === 'family') {
-    return <FamilyTracker onBack={() => setActiveTab('home')} />
+    return <FamilyTracker onBack={() => setActiveTab('home')} userEmail={userEmail} onLogout={handleLogout} />
   }
 
   return (
     <div className="home-container">
+      {showAuth && <AuthModal onLogin={handleLogin} />}
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 20px' }}>
+        {userEmail ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '0.9rem', color: '#374151' }}>✓ Saved to cloud {userEmail}</span>
+            <button className="btn-secondary" onClick={handleLogout} style={{ padding: '4px 12px', fontSize: '0.85rem' }}>Log out</button>
+          </div>
+        ) : (
+          <button className="btn-secondary" onClick={() => setShowAuth(true)}>Log in / Sign up</button>
+        )}
+      </div>
+
       <header className="home-header">
         <h1>Welcome to SpendWise</h1>
         <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
@@ -1151,7 +1345,7 @@ export default function App() {
 
         <div className="home-card">
           <div>
-            <div className="home-card-icon">👨‍👩‍👧‍👦</div>
+            <div className="home-card-icon">👨‍👩‍‍👧‍👦</div>
             <h2>Family Tracker</h2>
             <p>Manage group family budgets, shared household expenses, and member transfers.</p>
           </div>
