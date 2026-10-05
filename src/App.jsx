@@ -398,8 +398,9 @@ function IndividualTracker({ onBack }) {
   const extraIncome = monthTransactions.filter((t) => t.type === 'income').reduce((a, b) => a + Number(b.amount), 0)
   const totalIncome = salary + extraIncome
   const totalExpenses = monthTransactions.filter((t) => t.type === 'expense').reduce((a, b) => a + Number(b.amount), 0)
-  const totalRepayments = monthTransactions.filter((t) => t.type === 'repayment').reduce((a, b) => a + Number(b.amount), 0)
-  const monthlySavings = totalIncome - totalExpenses - totalRepayments
+  
+  /* Net Savings excludes Repayments */
+  const monthlySavings = totalIncome - totalExpenses
 
   /* Segregation Filtered List */
   const filteredTransactions = monthTransactions.filter((t) => {
@@ -466,7 +467,7 @@ function IndividualTracker({ onBack }) {
         </div>
       )}
 
-      {/* Stat Cards Summary - 5 Box Single Row Alignment */}
+      {/* Stat Cards Summary */}
       <section className="card">
         <h2>{formatMonth(selectedMonth)} Summary</h2>
         <div className="stat-grid">
@@ -813,14 +814,15 @@ function FamilyTracker({ onBack }) {
   const monthlyExtra = monthlyTransactions.filter((t) => t.type === 'extraIncome').reduce((sum, t) => sum + Number(t.amount || 0), 0)
   const totalFamilyIncome = monthlySalary + monthlyExtra
   const monthlyExpenses = monthlyTransactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount || 0), 0)
-  const monthlyRepayments = monthlyTransactions.filter((t) => t.type === 'repayment').reduce((sum, t) => sum + Number(t.amount || 0), 0)
-  const familySavings = totalFamilyIncome - monthlyExpenses - monthlyRepayments
+  
+  /* Family Savings excludes Repayments */
+  const familySavings = totalFamilyIncome - monthlyExpenses
 
   if (!familyCreated) {
     return (
       <div className="card" style={{ maxWidth: '600px', margin: '40px auto' }}>
         <button className="btn-secondary" onClick={onBack}>← Back to Home</button>
-        <h2>👨‍👩‍👧‍👦 Create Your Family Tracker</h2>
+        <h2>👨‍‍👩‍👧‍👦 Create Your Family Tracker</h2>
         <p style={{ color: '#6b7280' }}>Setup your household group to track shared income and expenses.</p>
         <label>Family Name</label>
         <input type="text" placeholder="e.g. The Sharma Family" value={familyName} onChange={(e) => setFamilyName(e.target.value)} />
@@ -862,10 +864,6 @@ function FamilyTracker({ onBack }) {
           <div className="stat-card">
             <div className="stat-card-title">Family Expenses</div>
             <div className="stat-card-value red">₹{formatMoney(monthlyExpenses)}</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-card-title">Debt Repayments</div>
-            <div className="stat-card-value red">₹{formatMoney(monthlyRepayments)}</div>
           </div>
           <div className="stat-card">
             <div className="stat-card-title">Net Savings</div>
