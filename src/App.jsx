@@ -65,8 +65,8 @@ function ToastAlert({ message, type, onClose }) {
     <div className="toast-container">
       <div className={`toast toast-${type}`}>
         <span>{message}</span>
-        <button 
-          onClick={onClose} 
+        <button
+          onClick={onClose}
           style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1rem', padding: '0 4px' }}
         >
           ✕
@@ -396,7 +396,7 @@ function IndividualTracker({ onBack, userEmail, onLogout }) {
   const extraIncome = monthTransactions.filter((t) => t.type === 'income').reduce((a, b) => a + Number(b.amount), 0)
   const totalIncome = salary + extraIncome
   const totalExpenses = monthTransactions.filter((t) => t.type === 'expense').reduce((a, b) => a + Number(b.amount), 0)
-  
+
   const monthlySavings = totalIncome - totalExpenses
 
   const filteredTransactions = monthTransactions.filter((t) => {
@@ -409,12 +409,12 @@ function IndividualTracker({ onBack, userEmail, onLogout }) {
   return (
     <div className="tracker">
       <ToastAlert message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
-      <ConfirmModal 
-        isOpen={Boolean(deleteId)} 
+      <ConfirmModal
+        isOpen={Boolean(deleteId)}
         title="Confirm Deletion"
-        message="Are you sure you want to delete this transaction entry?" 
-        onConfirm={handleConfirmDelete} 
-        onCancel={() => setDeleteId(null)} 
+        message="Are you sure you want to delete this transaction entry?"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteId(null)}
       />
 
       {/* Sync / Status Banner with Space and Logout Button */}
@@ -514,7 +514,7 @@ function IndividualTracker({ onBack, userEmail, onLogout }) {
 
       <section className="card">
         <h2>{editingId !== null ? '✏️ Edit Transaction' : '➕ Add Transaction'}</h2>
-        
+
         <label>Type</label>
         <select value={transactionType} onChange={(e) => handleTypeChange(e.target.value)}>
           <option value="salary">Salary</option>
@@ -567,43 +567,43 @@ function IndividualTracker({ onBack, userEmail, onLogout }) {
         <h2>📖 {formatMonth(selectedMonth)} Transactions Diary</h2>
 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '16px 0 20px 0' }}>
-          <button 
-            className={filterType === 'all' ? '' : 'btn-secondary'} 
+          <button
+            className={filterType === 'all' ? '' : 'btn-secondary'}
             onClick={() => setFilterType('all')}
             style={{ padding: '6px 14px', fontSize: '0.9rem' }}
           >
             All
           </button>
-          <button 
-            className={filterType === 'salary' ? '' : 'btn-secondary'} 
+          <button
+            className={filterType === 'salary' ? '' : 'btn-secondary'}
             onClick={() => setFilterType('salary')}
             style={{ padding: '6px 14px', fontSize: '0.9rem' }}
           >
             Salary
           </button>
-          <button 
-            className={filterType === 'income' ? '' : 'btn-secondary'} 
+          <button
+            className={filterType === 'income' ? '' : 'btn-secondary'}
             onClick={() => setFilterType('income')}
             style={{ padding: '6px 14px', fontSize: '0.9rem' }}
           >
             Extra Income
           </button>
-          <button 
-            className={filterType === 'expense' ? '' : 'btn-secondary'} 
+          <button
+            className={filterType === 'expense' ? '' : 'btn-secondary'}
             onClick={() => setFilterType('expense')}
             style={{ padding: '6px 14px', fontSize: '0.9rem' }}
           >
             Expenses
           </button>
-          <button 
-            className={filterType === 'borrowed' ? '' : 'btn-secondary'} 
+          <button
+            className={filterType === 'borrowed' ? '' : 'btn-secondary'}
             onClick={() => setFilterType('borrowed')}
             style={{ padding: '6px 14px', fontSize: '0.9rem' }}
           >
             Borrowed Money
           </button>
-          <button 
-            className={filterType === 'repayment' ? '' : 'btn-secondary'} 
+          <button
+            className={filterType === 'repayment' ? '' : 'btn-secondary'}
             onClick={() => setFilterType('repayment')}
             style={{ padding: '6px 14px', fontSize: '0.9rem' }}
           >
@@ -877,11 +877,11 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
   const monthlySalary = monthlyTransactions.filter((t) => t.type === 'salary').reduce((sum, t) => sum + Number(t.amount || 0), 0)
   const monthlyExtra = monthlyTransactions.filter((t) => t.type === 'extraIncome').reduce((sum, t) => sum + Number(t.amount || 0), 0)
   const totalFamilyIncome = monthlySalary + monthlyExtra
-  
+
   const monthlyExpenses = monthlyTransactions
     .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + Number(t.amount || 0), 0)
-  
+
   const familySavings = totalFamilyIncome - monthlyExpenses
 
   function getMemberBalance(memberId) {
@@ -915,12 +915,12 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
   return (
     <div className="tracker">
       <ToastAlert message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
-      <ConfirmModal 
-        isOpen={Boolean(deleteId)} 
-        title="Delete Family Transaction" 
-        message="Are you sure you want to remove this family transaction entry?" 
-        onConfirm={confirmDelete} 
-        onCancel={() => setDeleteId(null)} 
+      <ConfirmModal
+        isOpen={Boolean(deleteId)}
+        title="Delete Family Transaction"
+        message="Are you sure you want to remove this family transaction entry?"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteId(null)}
       />
 
       {/* Sync / Status Banner with Space and Logout Button */}
@@ -947,9 +947,9 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
         {isEditingFamilyName ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input 
-              type="text" 
-              value={tempFamilyName} 
+            <input
+              type="text"
+              value={tempFamilyName}
               onChange={(e) => setTempFamilyName(e.target.value)}
               style={{ fontSize: '1.2rem', padding: '4px 8px', margin: 0 }}
             />
@@ -959,8 +959,8 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
         ) : (
           <>
             <h1 style={{ margin: 0 }}>👨‍👩‍👧‍‍👦 {familyName} Tracker</h1>
-            <button 
-              className="btn-secondary" 
+            <button
+              className="btn-secondary"
               onClick={() => { setTempFamilyName(familyName); setIsEditingFamilyName(true); }}
               style={{ padding: '4px 8px', fontSize: '0.85rem' }}
             >
@@ -1027,7 +1027,7 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
       {/* Add / Edit Form */}
       <section className="card">
         <h2>{editingId ? '✏️ Edit Family Entry' : '➕ Add Family Transaction'}</h2>
-        
+
         <label>Transaction Type</label>
         <select value={transactionType} onChange={(e) => handleTypeChange(e.target.value)}>
           <option value="expense">Expense</option>
@@ -1134,9 +1134,9 @@ function FamilyTracker({ onBack, userEmail, onLogout }) {
                 {t.note && <div style={{ fontSize: '0.85rem', color: '#4b5563' }}>{t.note}</div>}
               </div>
               <div>
-                <strong style={{ 
-                  color: t.type === 'expense' ? '#dc2626' : t.type === 'transfer' ? '#4f46e5' : '#16a34a', 
-                  marginRight: '12px' 
+                <strong style={{
+                  color: t.type === 'expense' ? '#dc2626' : t.type === 'transfer' ? '#4f46e5' : '#16a34a',
+                  marginRight: '12px'
                 }}>
                   ₹{formatMoney(t.amount)}
                 </strong>
@@ -1217,26 +1217,26 @@ function AuthModal({ onLogin }) {
 
         <form onSubmit={handleSubmit}>
           <label>Email Address</label>
-          <input 
-            type="email" 
-            placeholder="you@example.com" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-            required 
+          <input
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
           />
 
           <label>Password</label>
           <div style={{ position: 'relative' }}>
-            <input 
-              type={showPassword ? 'text' : 'password'} 
-              placeholder="Enter password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              required 
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Enter password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
               style={{ width: '100%', paddingRight: '40px' }}
             />
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setShowPassword(!showPassword)}
               style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
             >
@@ -1248,16 +1248,16 @@ function AuthModal({ onLogin }) {
             <>
               <label style={{ marginTop: '12px', display: 'block' }}>Confirm Password</label>
               <div style={{ position: 'relative' }}>
-                <input 
-                  type={showConfirmPassword ? 'text' : 'password'} 
-                  placeholder="Confirm password" 
-                  value={confirmPassword} 
-                  onChange={(e) => setConfirmPassword(e.target.value)} 
-                  required 
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Confirm password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
                   style={{ width: '100%', paddingRight: '40px' }}
                 />
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
                 >
