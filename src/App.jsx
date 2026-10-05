@@ -176,6 +176,7 @@ function IndividualTracker({ onBack }) {
   const [dueDate, setDueDate] = useState('')
   const [editingId, setEditingId] = useState(null)
 
+  /* Segregation / Filter State */
   const [filterType, setFilterType] = useState('all')
 
   const [showMoneyDue, setShowMoneyDue] = useState(false)
@@ -183,6 +184,7 @@ function IndividualTracker({ onBack }) {
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentDate, setPaymentDate] = useState(getToday())
 
+  /* Toast & Confirm Modals */
   const [toast, setToast] = useState({ message: '', type: 'success' })
   const [deleteId, setDeleteId] = useState(null)
 
@@ -395,10 +397,16 @@ function IndividualTracker({ onBack }) {
   const salary = monthTransactions.filter((t) => t.type === 'salary').reduce((a, b) => a + Number(b.amount), 0)
   const extraIncome = monthTransactions.filter((t) => t.type === 'income').reduce((a, b) => a + Number(b.amount), 0)
   const totalIncome = salary + extraIncome
-  const totalExpenses = monthTransactions.filter((t) => t.type === 'expense').reduce((a, b) => a + Number(b.amount), 0)
-  
+
+  /* Expenses explicitly filter strictly for 'expense' type */
+  const totalExpenses = monthTransactions
+    .filter((t) => t.type === 'expense')
+    .reduce((a, b) => a + Number(b.amount), 0)
+
+  /* Net Savings = Total Income - Expenses (repayments are completely excluded) */
   const monthlySavings = totalIncome - totalExpenses
 
+  /* Segregation Filtered List */
   const filteredTransactions = monthTransactions.filter((t) => {
     if (filterType === 'all') return true
     return t.type === filterType
@@ -431,6 +439,7 @@ function IndividualTracker({ onBack }) {
       <h1>Individual Expense Tracker</h1>
       <hr />
 
+      {/* Money Due Drawer */}
       {showMoneyDue && (
         <div className="card" style={{ borderColor: '#4f46e5', backgroundColor: '#eef2ff' }}>
           <h3>💰 Outstanding Borrowed Money</h3>
@@ -449,6 +458,7 @@ function IndividualTracker({ onBack }) {
         </div>
       )}
 
+      {/* Payment Form Inline */}
       {paymentBorrowedId && (
         <div className="card" style={{ border: '2px solid #4f46e5' }}>
           <h3>Record Repayment</h3>
@@ -461,6 +471,7 @@ function IndividualTracker({ onBack }) {
         </div>
       )}
 
+      {/* Stat Cards Summary */}
       <section className="card">
         <h2>{formatMonth(selectedMonth)} Summary</h2>
         <div className="stat-grid">
@@ -496,10 +507,12 @@ function IndividualTracker({ onBack }) {
         </select>
       </section>
 
+      {/* Category Chart Breakdown */}
       <section className="card">
         <CategoryBreakdown transactions={monthTransactions} />
       </section>
 
+      {/* Add / Edit Form */}
       <section className="card">
         <h2>{editingId !== null ? '✏️ Edit Transaction' : '➕ Add Transaction'}</h2>
         
@@ -551,9 +564,11 @@ function IndividualTracker({ onBack }) {
         </div>
       </section>
 
+      {/* Transactions List Diary with Segregation Filter */}
       <section className="card">
         <h2>📖 {formatMonth(selectedMonth)} Transactions Diary</h2>
 
+        {/* Segregation Buttons */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '16px 0 20px 0' }}>
           <button 
             className={filterType === 'all' ? '' : 'btn-secondary'} 
@@ -632,9 +647,9 @@ function FamilyTracker({ onBack }) {
   const [familyName, setFamilyName] = usePersistentState('spendwise.family.name', '')
   const [familyCreated, setFamilyCreated] = usePersistentState('spendwise.family.created', false)
   const [members, setMembers] = usePersistentState('spendwise.family.members', [
-    { id: 'member-1', name: 'Mom', role: 'Parent' },
-    { id: 'member-2', name: 'Dad', role: 'Parent' },
-    { id: 'member-3', name: 'Kid', role: 'Child' },
+    { id: 'member-1', name: 'Mom', role: 'Parent', startingBalance: 0 },
+    { id: 'member-2', name: 'Dad', role: 'Parent', startingBalance: 0 },
+    { id: 'member-3', name: 'Kid', role: 'Child', startingBalance: 0 },
   ], Array.isArray)
 
   const [newMemberName, setNewMemberName] = useState('')
@@ -643,13 +658,15 @@ function FamilyTracker({ onBack }) {
   const [transactions, setTransactions] = usePersistentState('spendwise.family.transactions', [], Array.isArray)
 
   const [transactionType, setTransactionType] = useState('expense')
-  const [selectedMember, setSelectedMember] = useState('')
-  const [transferFrom, setTransferFrom] = useState('')
-  const [transferTo, setTransferTo] = useState('')
+  const [selectedMember, setSelectedMember] = useState(() => (members.length > 0 ? members[0].id : ''))
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState('Food')
   const [note, setNote] = useState('')
   const [date, setDate] = useState(getToday())
+  const [borrowedFrom, setBorrowedFrom] = useState('')
+  const [dueDate, setDueDate] = useState('')
+  const [transferFrom, setTransferFrom] = useState('')
+  const [transferTo, setTransferTo] = useState('')
   const [editingId, setEditingId] = useState(null)
 
   const [toast, setToast] = useState({ message: '', type: 'success' })
@@ -660,18 +677,9 @@ function FamilyTracker({ onBack }) {
 
   const availableMonths = getAvailableMonths()
 
-  // Initialize dropdown member selections
-  useEffect(() => {
-    if (members.length > 0) {
-      if (!selectedMember) setSelectedMember(members[0].id)
-      if (!transferFrom) setTransferFrom(members[0].id)
-      if (!transferTo) setTransferTo(members[1] ? members[1].id : members[0].id)
-    }
-  }, [members, selectedMember, transferFrom, transferTo])
-
   function getMemberName(id) {
     const member = members.find((m) => m.id === id)
-    return member ? member.name : 'Unknown Member'
+    return member ? member.name : 'Unknown'
   }
 
   function createFamily() {
@@ -688,17 +696,10 @@ function FamilyTracker({ onBack }) {
       showError('Please enter member name.')
       return
     }
-    const newM = { id: `member-${Date.now()}`, name: newMemberName.trim(), role: newMemberRole }
+    const newM = { id: `member-${Date.now()}`, name: newMemberName.trim(), role: newMemberRole, startingBalance: 0 }
     setMembers([...members, newM])
     setNewMemberName('')
     showSuccess(`Added ${newM.name} to family members.`)
-  }
-
-  function handleTypeChange(type) {
-    setTransactionType(type)
-    if (type === 'salary') setCategory('Salary')
-    if (type === 'expense') setCategory('Food')
-    if (type === 'extraIncome') setCategory('Bonus')
   }
 
   function saveTransaction() {
@@ -709,17 +710,13 @@ function FamilyTracker({ onBack }) {
 
     const numericAmount = Number(amount)
     if (!numericAmount || numericAmount <= 0) {
-      showError('Please enter a valid amount greater than ₹0.')
+      showError('Please enter a valid amount.')
       return
     }
 
     if (transactionType === 'transfer') {
-      if (!transferFrom || !transferTo) {
-        showError('Please select both sender and receiver.')
-        return
-      }
-      if (transferFrom === transferTo) {
-        showError('Transfer sender and receiver cannot be the same member.')
+      if (!transferFrom || !transferTo || transferFrom === transferTo) {
+        showError('Select valid distinct members for transfer.')
         return
       }
       const transferObj = {
@@ -728,18 +725,12 @@ function FamilyTracker({ onBack }) {
         fromMemberId: transferFrom,
         toMemberId: transferTo,
         amount: numericAmount,
-        category: 'Internal Transfer',
         date,
-        note: note.trim() || `Transfer from ${getMemberName(transferFrom)} to ${getMemberName(transferTo)}`,
+        note: note.trim() || 'Internal transfer',
       }
       setTransactions(editingId ? transactions.map(t => t.id === editingId ? transferObj : t) : [...transactions, transferObj])
-      showSuccess(`₹${formatMoney(numericAmount)} transferred from ${getMemberName(transferFrom)} to ${getMemberName(transferTo)}.`)
+      showSuccess('Family transfer saved successfully.')
       resetForm()
-      return
-    }
-
-    if (!selectedMember) {
-      showError('Please select a family member.')
       return
     }
 
@@ -751,10 +742,13 @@ function FamilyTracker({ onBack }) {
       category: transactionType === 'salary' ? 'Salary' : category,
       note: note.trim(),
       date,
+      borrowedFrom: transactionType === 'borrowed' ? borrowedFrom.trim() : '',
+      dueDate: transactionType === 'borrowed' ? dueDate : '',
+      borrowedId: null
     }
 
     setTransactions(editingId ? transactions.map(t => t.id === editingId ? txObj : t) : [...transactions, txObj])
-    showSuccess(editingId ? 'Transaction updated successfully!' : 'Family transaction added successfully!')
+    showSuccess(editingId ? 'Transaction updated successfully!' : 'Transaction added successfully!')
     resetForm()
   }
 
@@ -771,17 +765,19 @@ function FamilyTracker({ onBack }) {
     } else {
       setSelectedMember(tx.memberId)
       setCategory(tx.category || 'Food')
+      setBorrowedFrom(tx.borrowedFrom || '')
+      setDueDate(tx.dueDate || '')
     }
     showSuccess('Editing family entry...')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function resetForm() {
     setTransactionType('expense')
     setAmount('')
     setNote('')
+    setBorrowedFrom('')
+    setDueDate('')
     setEditingId(null)
-    setDate(getToday())
   }
 
   function confirmDelete() {
@@ -793,26 +789,22 @@ function FamilyTracker({ onBack }) {
 
   function loadSampleData() {
     const curr = selectedMonth
-    if (members.length < 2) {
-      showError('Need at least 2 family members to load transfer sample data.')
-      return
-    }
+    if (members.length < 2) return
     const samples = [
       { id: `tx-${Date.now()}-1`, type: 'salary', memberId: members[0].id, amount: 80000, category: 'Salary', note: 'Primary Income', date: `${curr}-01` },
-      { id: `tx-${Date.now()}-2`, type: 'transfer', fromMemberId: members[0].id, toMemberId: members[1].id, amount: 15000, category: 'Internal Transfer', note: 'Monthly allowance for household', date: `${curr}-02` },
-      { id: `tx-${Date.now()}-3`, type: 'expense', memberId: members[1].id, amount: 4500, category: 'Food', note: 'Monthly Provisions', date: `${curr}-03` },
-      { id: `tx-${Date.now()}-4`, type: 'expense', memberId: members[0].id, amount: 2200, category: 'Bills', note: 'Electricity Bill', date: `${curr}-04` },
+      { id: `tx-${Date.now()}-2`, type: 'expense', memberId: members[0].id, amount: 4500, category: 'Food', note: 'Monthly Provisions', date: `${curr}-02` },
+      { id: `tx-${Date.now()}-3`, type: 'expense', memberId: members[1].id, amount: 2200, category: 'Bills', note: 'Electricity Bill', date: `${curr}-04` },
     ]
     setTransactions([...transactions, ...samples])
     showSuccess('Sample family data loaded!')
   }
 
   function handleExportCSV() {
-    const headers = ['Date', 'Type', 'Member / Details', 'Category', 'Amount (INR)', 'Note']
+    const headers = ['Date', 'Type', 'Member', 'Category', 'Amount (INR)', 'Note']
     const rows = monthlyTransactions.map(t => [
       t.date,
       t.type,
-      t.type === 'transfer' ? `${getMemberName(t.fromMemberId)} ➔ ${getMemberName(t.toMemberId)}` : getMemberName(t.memberId),
+      getMemberName(t.memberId),
       t.category || '',
       t.amount,
       t.note || ''
@@ -821,39 +813,24 @@ function FamilyTracker({ onBack }) {
     showSuccess('Family CSV export downloaded!')
   }
 
-  /* Calculations for Dashboard */
   const monthlyTransactions = transactions.filter((t) => t.date && t.date.startsWith(selectedMonth))
   const monthlySalary = monthlyTransactions.filter((t) => t.type === 'salary').reduce((sum, t) => sum + Number(t.amount || 0), 0)
   const monthlyExtra = monthlyTransactions.filter((t) => t.type === 'extraIncome').reduce((sum, t) => sum + Number(t.amount || 0), 0)
   const totalFamilyIncome = monthlySalary + monthlyExtra
   
+  /* Family Expenses strictly filter for 'expense' type */
   const monthlyExpenses = monthlyTransactions
     .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + Number(t.amount || 0), 0)
   
+  /* Family Net Savings = Income - Expenses (repayments excluded) */
   const familySavings = totalFamilyIncome - monthlyExpenses
-
-  /* Calculate Dynamic Member Balances for selected month */
-  function getMemberBalance(memberId) {
-    let balance = 0
-    monthlyTransactions.forEach((t) => {
-      if (t.type === 'salary' || t.type === 'extraIncome') {
-        if (t.memberId === memberId) balance += Number(t.amount || 0)
-      } else if (t.type === 'expense') {
-        if (t.memberId === memberId) balance -= Number(t.amount || 0)
-      } else if (t.type === 'transfer') {
-        if (t.fromMemberId === memberId) balance -= Number(t.amount || 0)
-        if (t.toMemberId === memberId) balance += Number(t.amount || 0)
-      }
-    })
-    return balance
-  }
 
   if (!familyCreated) {
     return (
       <div className="card" style={{ maxWidth: '600px', margin: '40px auto' }}>
         <button className="btn-secondary" onClick={onBack}>← Back to Home</button>
-        <h2>👨‍👩‍👧‍👦 Create Your Family Tracker</h2>
+        <h2>👨‍‍👩‍👧‍👦 Create Your Family Tracker</h2>
         <p style={{ color: '#6b7280' }}>Setup your household group to track shared income and expenses.</p>
         <label>Family Name</label>
         <input type="text" placeholder="e.g. The Sharma Family" value={familyName} onChange={(e) => setFamilyName(e.target.value)} />
@@ -912,26 +889,6 @@ function FamilyTracker({ onBack }) {
         </select>
       </section>
 
-      {/* Individual Member Balances */}
-      <section className="card">
-        <h2>💳 Individual Member Balances ({formatMonth(selectedMonth)})</h2>
-        <div className="stat-grid" style={{ marginTop: '12px' }}>
-          {members.map((m) => {
-            const bal = getMemberBalance(m.id)
-            return (
-              <div key={m.id} className="stat-card" style={{ textAlign: 'left' }}>
-                <div className="stat-card-title" style={{ fontWeight: '600', fontSize: '1rem', color: '#111827' }}>
-                  {m.name} <span style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: '400' }}>({m.role})</span>
-                </div>
-                <div className={`stat-card-value ${bal >= 0 ? 'green' : 'red'}`} style={{ marginTop: '6px' }}>
-                  ₹{formatMoney(bal)}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </section>
-
       {/* Category Chart Breakdown */}
       <section className="card">
         <CategoryBreakdown transactions={monthlyTransactions} />
@@ -942,25 +899,25 @@ function FamilyTracker({ onBack }) {
         <h2>{editingId ? '✏️ Edit Family Entry' : '➕ Add Family Transaction'}</h2>
         
         <label>Transaction Type</label>
-        <select value={transactionType} onChange={(e) => handleTypeChange(e.target.value)}>
+        <select value={transactionType} onChange={(e) => setTransactionType(e.target.value)}>
           <option value="expense">Expense</option>
-          <option value="salary">Salary Income</option>
-          <option value="extraIncome">Extra Income</option>
-          <option value="transfer">Internal Family Transfer</option>
+          <option value="salary">Salary / Income</option>
+          <option value="transfer">Internal Transfer</option>
+          <option value="borrowed">Borrowed Money</option>
         </select>
 
         {transactionType === 'transfer' ? (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
-              <label>From Member (Sender)</label>
+              <label>From Member</label>
               <select value={transferFrom} onChange={(e) => setTransferFrom(e.target.value)}>
-                {members.map(m => <option key={m.id} value={m.id}>{m.name} ({m.role})</option>)}
+                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </div>
             <div>
-              <label>To Member (Receiver)</label>
+              <label>To Member</label>
               <select value={transferTo} onChange={(e) => setTransferTo(e.target.value)}>
-                {members.map(m => <option key={m.id} value={m.id}>{m.name} ({m.role})</option>)}
+                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </div>
           </div>
@@ -974,7 +931,7 @@ function FamilyTracker({ onBack }) {
         )}
 
         <label>Amount (₹)</label>
-        <input type="number" min="1" placeholder="Enter amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <input type="number" placeholder="Enter amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
 
         {transactionType === 'expense' && (
           <>
@@ -1012,23 +969,12 @@ function FamilyTracker({ onBack }) {
           monthlyTransactions.map((t) => (
             <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #e5e7eb', alignItems: 'center' }}>
               <div>
-                {t.type === 'transfer' ? (
-                  <>
-                    <strong style={{ color: '#4f46e5' }}>🔄 Internal Transfer:</strong> {getMemberName(t.fromMemberId)} ➔ {getMemberName(t.toMemberId)}
-                  </>
-                ) : (
-                  <>
-                    <strong>{t.category}</strong> ({getMemberName(t.memberId)})
-                  </>
-                )}
+                <strong>{t.type === 'transfer' ? `Transfer (${getMemberName(t.fromMemberId)} → ${getMemberName(t.toMemberId)})` : `${t.category} (${getMemberName(t.memberId)})`}</strong>
                 <span style={{ color: '#6b7280', fontSize: '0.85rem', marginLeft: '8px' }}>{formatDate(t.date)}</span>
                 {t.note && <div style={{ fontSize: '0.85rem', color: '#4b5563' }}>{t.note}</div>}
               </div>
               <div>
-                <strong style={{ 
-                  color: t.type === 'expense' ? '#dc2626' : t.type === 'transfer' ? '#4f46e5' : '#16a34a', 
-                  marginRight: '12px' 
-                }}>
+                <strong style={{ color: t.type === 'expense' || t.type === 'repayment' ? '#dc2626' : '#16a34a', marginRight: '12px' }}>
                   ₹{formatMoney(t.amount)}
                 </strong>
                 <button className="btn-secondary" onClick={() => editTransaction(t)} style={{ padding: '4px 8px', marginRight: '4px' }}>✏️ Edit</button>
